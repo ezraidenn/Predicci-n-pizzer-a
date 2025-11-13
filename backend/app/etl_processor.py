@@ -1,0 +1,262 @@
+"""
+ETL Processor - Procesamiento de archivos Excel de ventas
+"""
+import pandas as pd
+import numpy as np
+import logging
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
+
+
+class ETLProcessor:
+    """Procesador ETL para archivos Excel de ventas de Pizzería MAX"""
+    
+    def __init__(self, data_dir: Path):
+        self.data_dir = data_dir
+        
+    def process_excel(self, file_path: Path) -> pd.DataFrame:
+        """
+        Procesa archivo Excel y genera dataset diario
+        
+        Args:
+            file_path: Ruta al archivo Excel
+            
+        Returns:
+            DataFrame con datos diarios agregados
+        """
+        logger.info(f"Procesando archivo: {file_path}")
+        
+        # Leer hojas del Excel con context manager
+        try:
+            with pd.ExcelFile(file_path) as excel_data:
+                logger.info(f"Hojas encontradas: {excel_data.sheet_names}")
+                
+                # Validar hojas requeridas
+                required_sheets = ['Pedidos', 'Detalles', 'Visitas']
+                missing_sheets = [s for s in required_sheets if s not in excel_data.sheet_names]
+                if missing_sheets:
+                    raise ValueError(f"Faltan hojas requeridas: {', '.join(missing_sheets)}")
+                
+                # Leer hojas
+                df_pedidos = pd.read_excel(excel_data, sheet_name='Pedidos')
+                df_detalles = pd.read_excel(excel_data, sheet_name='Detalles')
+                df_visitas = pd.read_excel(excel_data, sheet_name='Visitas')
+        except Exception as e:
+            raise ValueError(f"Error leyendo archivo Excel: {str(e)}")
+        
+        logger.info(f"Pedidos: {len(df_pedidos)} registros")
+        logger.info(f"Detalles: {len(df_detalles)} registros")
+        logger.info(f"Visitas: {len(df_visitas)} registros")
+        
+        # Procesar cada hoja
+        df_pedidos_clean = self._process_pedidos(df_pedidos)
+        df_detalles_clean = self._process_detalles(df_detalles)
+        df_visitas_clean = self._process_visitas(df_visitas)
+        
+        # Combinar datos por fecha
+        df_daily = self._aggregate_daily(df_pedidos_clean, df_detalles_clean, df_visitas_clean)
+        
+        logger.info(f"Dataset diario generado: {len(df_daily)} días")
+        
+        return df_daily
+    
+    def _process_pedidos(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Procesa hoja de Pedidos"""
+        df = df.copy()
+        
+        # Mapear columnas de OlaClick al formato esperado
+        column_mapping = {
+            'Estado del pedido': 'Estado',
+            'Fecha de creación': 'Fecha de creación'
+        }
+        
+        # Renombrar columnas si existen
+        for old_col, new_col in column_mapping.items():
+            if old_col in df.columns and new_col not in df.columns:
+                df[new_col] = df[old_col]
+        
+        # Validar columnas requeridas (flexibles)
+        fecha_col = 'Fecha de creación'
+        total_col = 'Total'
+        estado_col = 'Estado del pedido' if 'Estado del pedido' in df.columns else 'Estado'
+        servicio_col = 'Tipo de servicio'
+        
+        required_cols = [fecha_col, total_col, estado_col, servicio_col]
+        missing_cols = [c for c in required_cols if c not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Faltan columnas en Pedidos: {', '.join(missing_cols)}")
+        
+        # Convertir fecha
+        df['fecha'] = pd.to_datetime(df[fecha_col], format='%d/%m/%Y | %H:%M', errors='coerce')
+        if df['fecha'].isna().all():
+            # Intentar otro formato
+            df['fecha'] = pd.to_datetime(df[fecha_col], errors='coerce')
+        df = df.dropna(subset=['fecha'])
+        df['fecha'] = df['fecha'].dt.date
+        
+        # Filtrar solo pedidos finalizados/completados
+        df = df[df[estado_col].str.lower().str.contains('finalizado|completado|entregado', na=False)]
+        
+        # Limpiar valores numéricos
+        df['Total'] = pd.to_numeric(df[total_col], errors='coerce').fillna(0)
+        df['Tipo de servicio'] = df[servicio_col]
+        
+        return df
+    
+    def _process_detalles(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Procesa hoja de Detalles"""
+        df = df.copy()
+        
+        # Mapear columnas de OlaClick
+        fecha_col = 'Fecha de creación'
+        nombre_col = 'Nombre del producto' if 'Nombre del producto' in df.columns else 'Nombre'
+        cantidad_col = 'Cantidad'
+        categoria_col = 'Categoría'
+        
+        # Validar columnas
+        required_cols = [fecha_col, nombre_col, cantidad_col]
+        missing_cols = [c for c in required_cols if c not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Faltan columnas en Detalles: {', '.join(missing_cols)}")
+        
+        # Convertir fecha
+        df['fecha'] = pd.to_datetime(df[fecha_col], format='%d/%m/%Y | %H:%M', errors='coerce')
+        if df['fecha'].isna().all():
+            df['fecha'] = pd.to_datetime(df[fecha_col], errors='coerce')
+        df = df.dropna(subset=['fecha'])
+        df['fecha'] = df['fecha'].dt.date
+        
+        # Limpiar cantidad
+        df['Cantidad'] = pd.to_numeric(df[cantidad_col], errors='coerce').fillna(0)
+        
+        # Categorizar productos
+        df['Nombre'] = df[nombre_col].astype(str).str.lower()
+        
+        # Identificar categorías con patrones más amplios
+        df['es_pizza'] = df['Nombre'].str.contains('pizza', na=False, case=False)
+        df['es_baguette'] = df['Nombre'].str.contains('baguette', na=False, case=False)
+        df['es_papas_gajo'] = df['Nombre'].str.contains('papas gajo|papa gajo|papas a gajo|orden de papas', na=False, case=False)
+        
+        # Si existe columna Categoría, usarla también
+        if categoria_col in df.columns:
+            df['Categoría'] = df[categoria_col].astype(str).str.lower()
+            df['es_pizza'] = df['es_pizza'] | df['Categoría'].str.contains('pizza', na=False, case=False)
+            df['es_baguette'] = df['es_baguette'] | df['Categoría'].str.contains('baguette', na=False, case=False)
+            df['es_papas_gajo'] = df['es_papas_gajo'] | df['Categoría'].str.contains('papas|papa', na=False, case=False)
+        
+        return df
+    
+    def _process_visitas(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Procesa hoja de Visitas"""
+        df = df.copy()
+        
+        # Validar columnas
+        required_cols = ['Fecha']
+        if 'Fecha' not in df.columns:
+            raise ValueError("Falta columna 'Fecha' en Visitas")
+        
+        # Convertir fecha
+        df['fecha'] = pd.to_datetime(df['Fecha'], format='%d/%m/%Y', errors='coerce')
+        if df['fecha'].isna().all():
+            df['fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
+        df = df.dropna(subset=['fecha'])
+        df['fecha'] = df['fecha'].dt.date
+        
+        # Mapear columnas de OlaClick
+        column_mapping = {
+            'Menús Vistos': 'Total de visitas',
+            'Pedido iniciado': 'Pedidos iniciados',
+            'Pedido creado': 'Pedidos creados'
+        }
+        
+        for old_col, new_col in column_mapping.items():
+            if old_col in df.columns:
+                df[new_col] = pd.to_numeric(df[old_col], errors='coerce').fillna(0)
+        
+        # Limpiar columnas numéricas (si ya existen)
+        numeric_cols = ['Total de visitas', 'Pedidos iniciados', 'Pedidos creados']
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        return df
+    
+    def _aggregate_daily(self, df_pedidos: pd.DataFrame, df_detalles: pd.DataFrame, 
+                        df_visitas: pd.DataFrame) -> pd.DataFrame:
+        """Agrega datos por día"""
+        
+        # Agregar pedidos por día
+        pedidos_daily = df_pedidos.groupby('fecha').agg({
+            'Total': 'sum',
+            'Tipo de servicio': lambda x: x.value_counts().to_dict()
+        }).reset_index()
+        
+        pedidos_daily.columns = ['fecha', 'total_ventas_dia', 'tipo_servicio_dict']
+        pedidos_daily['total_pedidos'] = df_pedidos.groupby('fecha').size().values
+        
+        # Calcular porcentajes de tipo de servicio
+        def calc_servicio_pct(row, tipo):
+            if isinstance(row['tipo_servicio_dict'], dict):
+                total = sum(row['tipo_servicio_dict'].values())
+                if total > 0:
+                    for key, val in row['tipo_servicio_dict'].items():
+                        if tipo.lower() in str(key).lower():
+                            return (val / total) * 100
+            return 0.0
+        
+        pedidos_daily['tipo_servicio_domicilio'] = pedidos_daily.apply(
+            lambda x: calc_servicio_pct(x, 'domicilio'), axis=1
+        )
+        pedidos_daily['tipo_servicio_llevar'] = pedidos_daily.apply(
+            lambda x: calc_servicio_pct(x, 'llevar'), axis=1
+        )
+        pedidos_daily = pedidos_daily.drop('tipo_servicio_dict', axis=1)
+        
+        # Agregar detalles por día
+        detalles_daily = df_detalles.groupby('fecha').agg({
+            'es_pizza': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
+            'es_baguette': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
+            'es_papas_gajo': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
+        }).reset_index()
+        
+        detalles_daily.columns = ['fecha', 'pizzas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas']
+        
+        # Agregar visitas por día
+        visitas_cols = ['fecha']
+        if 'Total de visitas' in df_visitas.columns:
+            visitas_cols.append('Total de visitas')
+        if 'Pedidos iniciados' in df_visitas.columns:
+            visitas_cols.append('Pedidos iniciados')
+        if 'Pedidos creados' in df_visitas.columns:
+            visitas_cols.append('Pedidos creados')
+        
+        visitas_daily = df_visitas[visitas_cols].groupby('fecha').sum().reset_index()
+        visitas_daily.columns = ['fecha', 'total_visitas', 'pedidos_iniciados', 'pedidos_creados']
+        
+        # Combinar todos los datos
+        df_daily = pedidos_daily.merge(detalles_daily, on='fecha', how='left')
+        df_daily = df_daily.merge(visitas_daily, on='fecha', how='left')
+        
+        # Rellenar NaN con 0
+        df_daily = df_daily.fillna(0)
+        
+        # Convertir fecha a datetime
+        df_daily['fecha'] = pd.to_datetime(df_daily['fecha'])
+        
+        # Ordenar por fecha
+        df_daily = df_daily.sort_values('fecha').reset_index(drop=True)
+        
+        # Asegurar tipos correctos
+        int_cols = ['total_pedidos', 'pizzas_vendidas', 'baguettes_vendidas', 
+                   'papas_gajo_vendidas', 'total_visitas', 'pedidos_iniciados', 'pedidos_creados']
+        for col in int_cols:
+            df_daily[col] = df_daily[col].astype(int)
+        
+        float_cols = ['total_ventas_dia', 'tipo_servicio_domicilio', 'tipo_servicio_llevar']
+        for col in float_cols:
+            df_daily[col] = df_daily[col].astype(float)
+        
+        return df_daily
