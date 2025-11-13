@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion'
-import { DollarSign, Pizza, Croissant, Beef } from 'lucide-react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { DollarSign, Pizza, Croissant, Beef, X, Info } from 'lucide-react'
 import KPICard from './KPICard'
 import SalesChart from './SalesChart'
 import ProductsChart from './ProductsChart'
@@ -10,6 +11,8 @@ import PredictionExplanation from './PredictionExplanation'
 import { formatNumber, formatCurrency } from '../utils/formatters'
 
 export default function Dashboard({ data, predictions, insight, loading }) {
+  const [selectedPrediction, setSelectedPrediction] = useState(null)
+  
   if (!data) return null
 
   const stats = data?.stats || {}
@@ -187,7 +190,8 @@ export default function Dashboard({ data, predictions, insight, loading }) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="border-b border-gray-200 hover:bg-primary-50 transition-colors"
+                    onClick={() => setSelectedPrediction(pred)}
+                    className="border-b border-gray-200 hover:bg-primary-50 transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4">
                       <div className="font-medium text-gray-800">{pred.fecha}</div>
@@ -258,6 +262,165 @@ export default function Dashboard({ data, predictions, insight, loading }) {
           </div>
         </motion.div>
       )}
+
+      {/* Modal de Explicación de Predicción */}
+      <AnimatePresence>
+        {selectedPrediction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedPrediction(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    📊 Explicación de Predicción
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedPrediction.fecha} - {selectedPrediction.dia_nombre}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedPrediction(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 hover:text-gray-800"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Predicción Principal */}
+              <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-xl p-6 mb-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Ventas Esperadas</p>
+                    <p className="text-3xl font-bold text-primary-600">
+                      {formatCurrency(selectedPrediction.total_ventas_dia)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Rango: {formatCurrency(selectedPrediction.ventas_min)} - {formatCurrency(selectedPrediction.ventas_max)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Pizzas Esperadas</p>
+                    <p className="text-3xl font-bold text-primary-600">
+                      {Math.round(selectedPrediction.pizzas_vendidas)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Rango: {Math.round(selectedPrediction.pizzas_min)} - {Math.round(selectedPrediction.pizzas_max)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Justificación */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-gray-800">🎯 ¿Por qué esta predicción?</h3>
+                
+                {/* Día de la Semana */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                      1
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800 mb-1">Patrón del día: {selectedPrediction.dia_nombre}</p>
+                      <p className="text-sm text-gray-600">
+                        Basado en el promedio de los últimos 40 {selectedPrediction.dia_nombre}s en tu pizzería.
+                        Cada día de la semana tiene su propio patrón de ventas.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Evento Especial */}
+                {selectedPrediction.evento && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                        2
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-800 mb-1">🎉 Evento Especial: {selectedPrediction.evento}</p>
+                        <p className="text-sm text-gray-600 mb-2">
+                          {selectedPrediction.evento.includes('Quincena') && 
+                            'Los días de quincena históricamente tienen mayor demanda debido a que es día de pago. Las personas tienden a gastar más en restaurantes.'
+                          }
+                          {selectedPrediction.evento.includes('Navidad') && 
+                            'Navidad es uno de los días con mayor demanda del año. Las familias celebran en casa y piden pizzas.'
+                          }
+                          {selectedPrediction.evento.includes('Año Nuevo') && 
+                            'Fin de año es un día de alta demanda. Fiestas y reuniones incrementan los pedidos.'
+                          }
+                        </p>
+                        <p className="text-sm font-semibold text-orange-700">
+                          Multiplicador aplicado: {selectedPrediction.multiplicador ? `${((selectedPrediction.multiplicador - 1) * 100).toFixed(0)}%` : '0%'} adicional
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rangos */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                      {selectedPrediction.evento ? '3' : '2'}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800 mb-1">Rangos de variabilidad</p>
+                      <p className="text-sm text-gray-600 mb-2">
+                        Los rangos representan la variabilidad natural de tu negocio:
+                      </p>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li><strong>Escenario pesimista:</strong> 15% de días similares tuvieron ventas menores</li>
+                        <li><strong>Predicción base:</strong> Valor más probable (mediana histórica)</li>
+                        <li><strong>Escenario optimista:</strong> 15% de días similares tuvieron ventas mayores</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recomendaciones */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                      💡
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800 mb-1">Recomendaciones para este día</p>
+                      <ul className="text-sm text-gray-600 space-y-1">
+                        <li>• Comprar ingredientes para: <strong>{Math.round(selectedPrediction.pizzas_max)} pizzas</strong> (escenario optimista)</li>
+                        <li>• Personal recomendado: <strong>{Math.round(selectedPrediction.pizzas_vendidas / 25)} personas</strong> (1 por cada 25 pizzas)</li>
+                        <li>• Si al mediodía llevas {Math.round(selectedPrediction.pizzas_vendidas / 2)} pizzas, vas en buen ritmo</li>
+                        {selectedPrediction.evento && (
+                          <li className="text-orange-700 font-semibold">• ⚠️ Día especial: considera tener personal extra disponible</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <p className="text-xs text-gray-500 text-center">
+                  Esta predicción se basa en 322 días de datos históricos de tu pizzería y se actualiza automáticamente con cada nuevo dato.
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
