@@ -6,6 +6,20 @@ import { formatNumber, formatCurrency, formatPercent } from '../utils/formatters
 
 const API_URL = '/api'
 
+// Función para detectar si es día de quincena
+const esQuincena = (dia) => {
+  return (dia >= 1 && dia <= 4) || (dia >= 15 && dia <= 18)
+}
+
+// Función para obtener tipo de quincena
+const getTipoQuincena = (dia) => {
+  if (dia === 1 || dia === 15) return 'Día de pago'
+  if (dia === 2 || dia === 16) return 'Pico (+40%)'
+  if (dia === 3 || dia === 17) return 'Alto (+25%)'
+  if (dia === 4 || dia === 18) return 'Moderado (+10%)'
+  return null
+}
+
 export default function Analytics() {
   const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -271,32 +285,45 @@ export default function Analytics() {
         >
           <h2 className="text-2xl font-bold mb-6 text-gray-800">🏆 Top 10 Mejores Días</h2>
           <div className="space-y-3">
-            {top_dias.map((dia, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-primary-50 hover:border-primary-300 transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                    idx === 0 ? 'bg-yellow-400 text-gray-900' :
-                    idx === 1 ? 'bg-gray-300 text-gray-900' :
-                    idx === 2 ? 'bg-orange-400 text-gray-900' :
-                    'bg-gray-200 text-gray-700'
-                  }`}>
-                    {idx + 1}
+            {top_dias.map((dia, idx) => {
+              const diaNum = new Date(dia.fecha).getDate()
+              const esQuincenaDay = esQuincena(diaNum)
+              const tipoQuincena = getTipoQuincena(diaNum)
+              
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-primary-50 hover:border-primary-300 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                      idx === 0 ? 'bg-yellow-400 text-gray-900' :
+                      idx === 1 ? 'bg-gray-300 text-gray-900' :
+                      idx === 2 ? 'bg-orange-400 text-gray-900' :
+                      'bg-gray-200 text-gray-700'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-800">{dia.fecha}</p>
+                        {esQuincenaDay && (
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold">
+                            💰 {tipoQuincena}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {formatNumber(dia.total_pedidos)} pedidos • {formatNumber(dia.pizzas_vendidas)} pizzas
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-800">{dia.fecha}</p>
-                    <p className="text-sm text-gray-600">
-                      {formatNumber(dia.total_pedidos)} pedidos • {formatNumber(dia.pizzas_vendidas)} pizzas
-                    </p>
-                  </div>
+                  <p className="text-xl font-bold text-primary-600">
+                    {formatCurrency(dia.total_ventas_dia)}
+                  </p>
                 </div>
-                <p className="text-xl font-bold text-primary-600">
-                  {formatCurrency(dia.total_ventas_dia)}
-                </p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </motion.div>
 
@@ -365,44 +392,71 @@ export default function Analytics() {
 
                 {/* Días del mes */}
                 {generateCalendar(selectedMonth.año, selectedMonth.mes).map((week, weekIdx) => (
-                  week.map((day, dayIdx) => (
-                    <div
-                      key={`${weekIdx}-${dayIdx}`}
-                      className={`aspect-square p-2 rounded-lg ${
-                        day?.data
-                          ? 'bg-primary-50 border border-primary-200 hover:bg-primary-100 cursor-pointer'
-                          : day
-                          ? 'bg-gray-50'
-                          : 'bg-transparent'
-                      } transition-colors`}
-                    >
-                      {day && (
-                        <div className="h-full flex flex-col">
-                          <span className="text-sm font-bold mb-1">{day.day}</span>
-                          {day.data && (
-                            <div className="flex-1 flex flex-col justify-between text-xs">
-                              <div className="font-bold text-primary-600">
-                                ${day.data.total_ventas_dia?.toFixed(0) || '0'}
-                              </div>
-                              <div className="text-gray-600 space-y-0.5">
-                                <div>🍕 {day.data.pizzas_vendidas || 0}</div>
-                                <div>🥖 {day.data.baguettes_vendidas || 0}</div>
-                                <div>🍟 {day.data.papas_gajo_vendidas || 0}</div>
-                              </div>
+                  week.map((day, dayIdx) => {
+                    const esQuincenaDay = day ? esQuincena(day.day) : false
+                    const tipoQuincena = day ? getTipoQuincena(day.day) : null
+                    
+                    return (
+                      <div
+                        key={`${weekIdx}-${dayIdx}`}
+                        className={`aspect-square p-2 rounded-lg ${
+                          day?.data
+                            ? esQuincenaDay
+                              ? 'bg-orange-50 border-2 border-orange-300 hover:bg-orange-100 cursor-pointer'
+                              : 'bg-primary-50 border border-primary-200 hover:bg-primary-100 cursor-pointer'
+                            : day
+                            ? 'bg-gray-50'
+                            : 'bg-transparent'
+                        } transition-colors relative`}
+                      >
+                        {day && (
+                          <div className="h-full flex flex-col">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-bold">{day.day}</span>
+                              {esQuincenaDay && (
+                                <span className="text-xs">💰</span>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))
+                            {day.data && (
+                              <div className="flex-1 flex flex-col justify-between text-xs">
+                                <div className="font-bold text-primary-600">
+                                  ${day.data.total_ventas_dia?.toFixed(0) || '0'}
+                                </div>
+                                {esQuincenaDay && (
+                                  <div className="text-[10px] text-orange-600 font-semibold mb-0.5">
+                                    {tipoQuincena}
+                                  </div>
+                                )}
+                                <div className="text-gray-600 space-y-0.5">
+                                  <div>🍕 {day.data.pizzas_vendidas || 0}</div>
+                                  <div>🥖 {day.data.baguettes_vendidas || 0}</div>
+                                  <div>🍟 {day.data.papas_gajo_vendidas || 0}</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
                 ))}
               </div>
 
               {/* Leyenda */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
                 <p className="text-sm text-gray-600">
                   <strong>Leyenda:</strong> Cada celda muestra las ventas del día, pizzas 🍕, baguettes 🥖 y papas gajo 🍟
                 </p>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-orange-50 border-2 border-orange-300 rounded"></div>
+                    <span className="text-gray-600">💰 Días de quincena (1-4, 15-18)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-primary-50 border border-primary-200 rounded"></div>
+                    <span className="text-gray-600">Días normales</span>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </motion.div>

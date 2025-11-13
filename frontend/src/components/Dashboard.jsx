@@ -191,8 +191,11 @@ export default function Dashboard({ data, predictions, insight, loading }) {
                   >
                     <td className="py-3 px-4">
                       <div className="font-medium text-gray-800">{pred.fecha}</div>
-                      {pred.dia_nombre && (
-                        <div className="text-xs text-gray-500">{pred.dia_nombre}</div>
+                      <div className="text-xs text-gray-500">{pred.dia_nombre}</div>
+                      {pred.evento && (
+                        <div className="text-xs font-semibold text-orange-600 mt-1">
+                          🎉 {pred.evento}
+                        </div>
                       )}
                     </td>
                     <td className="py-3 px-4 text-right">

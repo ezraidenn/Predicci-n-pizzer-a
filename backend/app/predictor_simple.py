@@ -11,6 +11,8 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List
 
+from app.calendar_events import CalendarioEventos
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +26,7 @@ class PredictorSimple:
         self.models_dir.mkdir(parents=True, exist_ok=True)
         
         self.promedios = {}  # Promedios por tipo de día
+        self.calendario = CalendarioEventos()  # Sistema de eventos especiales
         
     def train_models(self, data_file: Path):
         """
@@ -133,37 +136,47 @@ class PredictorSimple:
             dia_semana = pred_date.dayofweek
             dia_nombre = dias_nombres[dia_semana]
             
-            # Usar promedios del día específico (con rangos)
+            # Obtener predicción base del día
+            pizzas_base = float(self.promedios[dia_semana]['pizzas_vendidas']['base'])
+            baguettes_base = float(self.promedios[dia_semana]['baguettes_vendidas']['base'])
+            papas_base = float(self.promedios[dia_semana]['papas_gajo_vendidas']['base'])
+            ventas_base = float(self.promedios[dia_semana]['total_ventas_dia']['base'])
+            
+            # Aplicar multiplicadores por quincenas/festivos
+            evento_info = self.calendario.get_multiplicador_total(pred_date)
+            multiplicador = evento_info['multiplicador']
+            
+            # Aplicar multiplicador a predicciones
             pred_values = {
                 'fecha': pred_date,
                 'dia_nombre': dia_nombre,
                 
-                # Base (mediana)
-                'pizzas_vendidas': float(self.promedios[dia_semana]['pizzas_vendidas']['base']),
-                'baguettes_vendidas': float(self.promedios[dia_semana]['baguettes_vendidas']['base']),
-                'papas_gajo_vendidas': float(self.promedios[dia_semana]['papas_gajo_vendidas']['base']),
-                'total_ventas_dia': float(self.promedios[dia_semana]['total_ventas_dia']['base']),
+                # Base ajustada por eventos
+                'pizzas_vendidas': float(pizzas_base * multiplicador),
+                'baguettes_vendidas': float(baguettes_base * multiplicador),
+                'papas_gajo_vendidas': float(papas_base * multiplicador),
+                'total_ventas_dia': float(ventas_base * multiplicador),
                 
-                # Rangos pizzas
-                'pizzas_min': float(self.promedios[dia_semana]['pizzas_vendidas']['min']),
-                'pizzas_max': float(self.promedios[dia_semana]['pizzas_vendidas']['max']),
+                # Rangos ajustados
+                'pizzas_min': float(self.promedios[dia_semana]['pizzas_vendidas']['min'] * multiplicador),
+                'pizzas_max': float(self.promedios[dia_semana]['pizzas_vendidas']['max'] * multiplicador),
+                'baguettes_min': float(self.promedios[dia_semana]['baguettes_vendidas']['min'] * multiplicador),
+                'baguettes_max': float(self.promedios[dia_semana]['baguettes_vendidas']['max'] * multiplicador),
+                'papas_min': float(self.promedios[dia_semana]['papas_gajo_vendidas']['min'] * multiplicador),
+                'papas_max': float(self.promedios[dia_semana]['papas_gajo_vendidas']['max'] * multiplicador),
+                'ventas_min': float(self.promedios[dia_semana]['total_ventas_dia']['min'] * multiplicador),
+                'ventas_max': float(self.promedios[dia_semana]['total_ventas_dia']['max'] * multiplicador),
                 
-                # Rangos baguettes
-                'baguettes_min': float(self.promedios[dia_semana]['baguettes_vendidas']['min']),
-                'baguettes_max': float(self.promedios[dia_semana]['baguettes_vendidas']['max']),
-                
-                # Rangos papas
-                'papas_min': float(self.promedios[dia_semana]['papas_gajo_vendidas']['min']),
-                'papas_max': float(self.promedios[dia_semana]['papas_gajo_vendidas']['max']),
-                
-                # Rangos ventas
-                'ventas_min': float(self.promedios[dia_semana]['total_ventas_dia']['min']),
-                'ventas_max': float(self.promedios[dia_semana]['total_ventas_dia']['max']),
+                # Info del evento
+                'evento': evento_info['evento'],
+                'multiplicador': multiplicador,
             }
             
             predictions.append(pred_values)
             
-            logger.info(f"{pred_date.date()} ({dia_nombre}): {pred_values['pizzas_vendidas']:.0f} pizzas ({pred_values['pizzas_min']:.0f}-{pred_values['pizzas_max']:.0f}), ${pred_values['total_ventas_dia']:,.0f} (${pred_values['ventas_min']:,.0f}-${pred_values['ventas_max']:,.0f})")
+            # Log con info de evento
+            evento_str = f" 🎉 {evento_info['evento']} (+{(multiplicador-1)*100:.0f}%)" if evento_info['evento'] else ""
+            logger.info(f"{pred_date.date()} ({dia_nombre}){evento_str}: {pred_values['pizzas_vendidas']:.0f} pizzas ({pred_values['pizzas_min']:.0f}-{pred_values['pizzas_max']:.0f}), ${pred_values['total_ventas_dia']:,.0f} (${pred_values['ventas_min']:,.0f}-${pred_values['ventas_max']:,.0f})")
         
         return predictions
     
