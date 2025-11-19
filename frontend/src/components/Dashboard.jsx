@@ -300,24 +300,54 @@ export default function Dashboard({ data, predictions, insight, loading }) {
 
               {/* Predicción Principal */}
               <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-xl p-6 mb-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Ventas Esperadas</p>
-                    <p className="text-3xl font-bold text-primary-600">
+                    <p className="text-2xl font-bold text-primary-600">
                       {formatCurrency(selectedPrediction.total_ventas_dia)}
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
-                      Rango: {formatCurrency(selectedPrediction.ventas_min)} - {formatCurrency(selectedPrediction.ventas_max)}
+                      {formatCurrency(selectedPrediction.ventas_min)} - {formatCurrency(selectedPrediction.ventas_max)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Pizzas Esperadas</p>
-                    <p className="text-3xl font-bold text-primary-600">
+                    <p className="text-sm text-gray-600 mb-1">Pizzas Totales</p>
+                    <p className="text-2xl font-bold text-primary-600">
                       {Math.round(selectedPrediction.pizzas_vendidas)}
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
-                      Rango: {Math.round(selectedPrediction.pizzas_min)} - {Math.round(selectedPrediction.pizzas_max)}
+                      {Math.round(selectedPrediction.pizzas_min)} - {Math.round(selectedPrediction.pizzas_max)}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Alitas</p>
+                    <p className="text-2xl font-bold text-primary-600">
+                      {Math.round(selectedPrediction.alitas_vendidas || 0)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {Math.round(selectedPrediction.alitas_min || 0)} - {Math.round(selectedPrediction.alitas_max || 0)}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Desglose de Pizzas */}
+                <div className="mt-4 pt-4 border-t border-primary-200">
+                  <p className="text-xs text-gray-600 mb-2 font-semibold">🍕 Desglose de Pizzas:</p>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="bg-white/50 rounded-lg p-2">
+                      <p className="text-gray-600 text-xs">Normales</p>
+                      <p className="font-bold text-lg">{Math.round(selectedPrediction.pizzas_vendidas - (selectedPrediction.pizzas_pastor || 0) - (selectedPrediction.pizzas_chuleta || 0))}</p>
+                    </div>
+                    <div className="bg-white/50 rounded-lg p-2">
+                      <p className="text-gray-600 text-xs">🌮 Pastor</p>
+                      <p className="font-bold text-lg">{Math.round(selectedPrediction.pizzas_pastor || 0)}</p>
+                      <p className="text-xs text-gray-500">({Math.round(selectedPrediction.pastor_min || 0)}-{Math.round(selectedPrediction.pastor_max || 0)})</p>
+                    </div>
+                    <div className="bg-white/50 rounded-lg p-2">
+                      <p className="text-gray-600 text-xs">🥩 Chuleta</p>
+                      <p className="font-bold text-lg">{Math.round(selectedPrediction.pizzas_chuleta || 0)}</p>
+                      <p className="text-xs text-gray-500">({Math.round(selectedPrediction.chuleta_min || 0)}-{Math.round(selectedPrediction.chuleta_max || 0)})</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -399,11 +429,14 @@ export default function Dashboard({ data, predictions, insight, loading }) {
                     <div className="flex-1">
                       <p className="font-semibold text-gray-800 mb-1">Recomendaciones para este día</p>
                       <ul className="text-sm text-gray-600 space-y-1">
-                        <li>• Comprar ingredientes para: <strong>{Math.round(selectedPrediction.pizzas_max)} pizzas</strong> (escenario optimista)</li>
-                        <li>• Personal recomendado: <strong>{Math.round(selectedPrediction.pizzas_vendidas / 25)} personas</strong> (1 por cada 25 pizzas)</li>
-                        <li>• Si al mediodía llevas {Math.round(selectedPrediction.pizzas_vendidas / 2)} pizzas, vas en buen ritmo</li>
+                        <li>• <strong>Pizzas normales:</strong> {Math.round((selectedPrediction.pizzas_vendidas - (selectedPrediction.pizzas_pastor || 0) - (selectedPrediction.pizzas_chuleta || 0)) * 1.1)} unidades</li>
+                        <li>• <strong>🌮 Carne al pastor:</strong> {Math.round((selectedPrediction.pizzas_pastor || 0) * 0.2)} kg (200g por pizza)</li>
+                        <li>• <strong>🥩 Chuleta:</strong> {Math.round((selectedPrediction.pizzas_chuleta || 0) * 0.2)} kg (200g por pizza)</li>
+                        <li>• <strong>🍗 Alitas:</strong> {Math.round((selectedPrediction.alitas_vendidas || 0) * 1.1)} órdenes (aprox {Math.round((selectedPrediction.alitas_vendidas || 0) * 6)} piezas)</li>
+                        <li>• <strong>👥 Personal:</strong> {Math.max(2, Math.round(selectedPrediction.pizzas_vendidas / 25))} personas (1 por cada 25 pizzas)</li>
+                        <li>• Si al mediodía llevas {Math.round(selectedPrediction.pizzas_vendidas / 2)} pizzas totales, vas en buen ritmo</li>
                         {selectedPrediction.evento && (
-                          <li className="text-orange-700 font-semibold">• ⚠️ Día especial: considera tener personal extra disponible</li>
+                          <li className="text-orange-700 font-semibold">• ⚠️ Día especial: considera tener personal extra y más ingredientes</li>
                         )}
                       </ul>
                     </div>

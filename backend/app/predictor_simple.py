@@ -70,7 +70,7 @@ class PredictorSimple:
                     # Calcular mediana (central) y percentiles (rangos)
                     self.promedios[dia_num] = {}
                     
-                    for variable in ['pizzas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas', 'total_ventas_dia']:
+                    for variable in ['pizzas_vendidas', 'pizzas_pastor', 'pizzas_chuleta', 'alitas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas', 'total_ventas_dia']:
                         mediana = df_reciente[variable].median()
                         p15 = df_reciente[variable].quantile(0.15)  # Percentil 15 (rango amplio para crecimiento)
                         p85 = df_reciente[variable].quantile(0.85)  # Percentil 85 (rango amplio para crecimiento)
@@ -138,6 +138,9 @@ class PredictorSimple:
             
             # Obtener predicción base del día
             pizzas_base = float(self.promedios[dia_semana]['pizzas_vendidas']['base'])
+            pastor_base = float(self.promedios[dia_semana]['pizzas_pastor']['base'])
+            chuleta_base = float(self.promedios[dia_semana]['pizzas_chuleta']['base'])
+            alitas_base = float(self.promedios[dia_semana]['alitas_vendidas']['base'])
             baguettes_base = float(self.promedios[dia_semana]['baguettes_vendidas']['base'])
             papas_base = float(self.promedios[dia_semana]['papas_gajo_vendidas']['base'])
             ventas_base = float(self.promedios[dia_semana]['total_ventas_dia']['base'])
@@ -153,17 +156,38 @@ class PredictorSimple:
                 
                 # Base ajustada por eventos
                 'pizzas_vendidas': float(pizzas_base * multiplicador),
+                'pizzas_pastor': float(pastor_base * multiplicador),
+                'pizzas_chuleta': float(chuleta_base * multiplicador),
+                'alitas_vendidas': float(alitas_base * multiplicador),
                 'baguettes_vendidas': float(baguettes_base * multiplicador),
                 'papas_gajo_vendidas': float(papas_base * multiplicador),
                 'total_ventas_dia': float(ventas_base * multiplicador),
                 
-                # Rangos ajustados
+                # Rangos pizzas totales
                 'pizzas_min': float(self.promedios[dia_semana]['pizzas_vendidas']['min'] * multiplicador),
                 'pizzas_max': float(self.promedios[dia_semana]['pizzas_vendidas']['max'] * multiplicador),
+                
+                # Rangos pizzas pastor
+                'pastor_min': float(self.promedios[dia_semana]['pizzas_pastor']['min'] * multiplicador),
+                'pastor_max': float(self.promedios[dia_semana]['pizzas_pastor']['max'] * multiplicador),
+                
+                # Rangos pizzas chuleta
+                'chuleta_min': float(self.promedios[dia_semana]['pizzas_chuleta']['min'] * multiplicador),
+                'chuleta_max': float(self.promedios[dia_semana]['pizzas_chuleta']['max'] * multiplicador),
+                
+                # Rangos alitas
+                'alitas_min': float(self.promedios[dia_semana]['alitas_vendidas']['min'] * multiplicador),
+                'alitas_max': float(self.promedios[dia_semana]['alitas_vendidas']['max'] * multiplicador),
+                
+                # Rangos baguettes
                 'baguettes_min': float(self.promedios[dia_semana]['baguettes_vendidas']['min'] * multiplicador),
                 'baguettes_max': float(self.promedios[dia_semana]['baguettes_vendidas']['max'] * multiplicador),
+                
+                # Rangos papas
                 'papas_min': float(self.promedios[dia_semana]['papas_gajo_vendidas']['min'] * multiplicador),
                 'papas_max': float(self.promedios[dia_semana]['papas_gajo_vendidas']['max'] * multiplicador),
+                
+                # Rangos ventas
                 'ventas_min': float(self.promedios[dia_semana]['total_ventas_dia']['min'] * multiplicador),
                 'ventas_max': float(self.promedios[dia_semana]['total_ventas_dia']['max'] * multiplicador),
                 
