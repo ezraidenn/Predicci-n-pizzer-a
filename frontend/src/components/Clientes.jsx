@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Search, Phone, MapPin, DollarSign, Calendar, 
-  TrendingUp, Star, Award, UserCheck, Clock, ChevronRight,
-  X, ShoppingBag, Heart
+  TrendingUp, Star, Clock, ChevronRight, X, ShoppingBag
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -135,42 +134,6 @@ export default function Clientes() {
         </motion.div>
       </div>
 
-
-      {/* Top Clientes */}
-      {stats?.top_clientes && stats.top_clientes.length > 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Award className="w-5 h-5 text-yellow-500" />
-            Top 10 Mejores Clientes
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {stats.top_clientes.map((cliente, idx) => (
-              <motion.div
-                key={cliente.telefono}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                onClick={() => handleClienteClick(cliente.telefono)}
-                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-orange-50 cursor-pointer transition-colors"
-              >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                  idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-400' : 'bg-gray-300'
-                }`}>
-                  {idx + 1}
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-800">{cliente.nombre || 'Sin nombre'}</div>
-                  <div className="text-sm text-gray-500">{cliente.total_pedidos} pedidos</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-green-600">{formatCurrency(cliente.total_gastado)}</div>
-                  <div className="text-xs text-gray-400">Total gastado</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Lista de Clientes con Búsqueda integrada */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">

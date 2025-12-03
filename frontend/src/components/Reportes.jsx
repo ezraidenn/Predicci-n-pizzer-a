@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart3, TrendingUp, TrendingDown, Calendar, DollarSign,
-  Users, Pizza, ShoppingBag, Award, Target, Percent, Clock,
-  MapPin, Phone, X, ChevronRight, Zap, AlertTriangle, CheckCircle,
-  PieChart, Activity, Star
+  Users, ShoppingBag, Target, Percent, Clock,
+  MapPin, Phone, X, Zap, CheckCircle, Activity, Star
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -264,63 +263,80 @@ export default function Reportes() {
         </div>
       </motion.div>
 
-      {/* Top Clientes - Clickeable */}
-      {clientes?.top_clientes && clientes.top_clientes.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="bg-white rounded-xl shadow-lg p-6"
-        >
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Award className="w-5 h-5 text-yellow-500" />
-            Top 10 Clientes VIP
-            <span className="text-xs font-normal text-gray-400 ml-2">(click para ver detalle)</span>
-          </h3>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-500 border-b">
-                  <th className="pb-3 font-medium">#</th>
-                  <th className="pb-3 font-medium">Cliente</th>
-                  <th className="pb-3 font-medium text-center">Pedidos</th>
-                  <th className="pb-3 font-medium text-right">Total Gastado</th>
-                  <th className="pb-3 font-medium text-right">Ticket Prom.</th>
-                  <th className="pb-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {clientes.top_clientes.map((cliente, idx) => (
-                  <tr 
-                    key={cliente.telefono} 
-                    onClick={() => handleClienteClick(cliente.telefono)}
-                    className="border-b border-gray-50 hover:bg-orange-50 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                        idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-400' : 'bg-gray-300'
-                      }`}>
-                        {idx + 1}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <div className="font-medium text-gray-800">{cliente.nombre || 'Sin nombre'}</div>
-                      <div className="text-xs text-gray-400">{cliente.telefono}</div>
-                    </td>
-                    <td className="py-3 text-center text-gray-600">{cliente.total_pedidos}</td>
-                    <td className="py-3 text-right font-bold text-green-600">{formatCurrency(cliente.total_gastado)}</td>
-                    <td className="py-3 text-right text-gray-600">{formatCurrency(cliente.ticket_promedio)}</td>
-                    <td className="py-3 text-right">
-                      <ChevronRight className="w-4 h-4 text-gray-300" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Top Clientes - Dos tablas lado a lado */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="grid md:grid-cols-2 gap-6"
+      >
+        {/* Top por Dinero Gastado */}
+        {clientes?.top_por_dinero && clientes.top_por_dinero.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-500" />
+              Top 10 por Dinero Gastado
+            </h3>
+            
+            <div className="space-y-2">
+              {clientes.top_por_dinero.map((cliente, idx) => (
+                <div 
+                  key={cliente.telefono} 
+                  onClick={() => handleClienteClick(cliente.telefono)}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-green-50 cursor-pointer transition-colors"
+                >
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                    idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-400' : 'bg-gray-300'
+                  }`}>
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-800 truncate">{cliente.nombre || 'Sin nombre'}</div>
+                    <div className="text-xs text-gray-400">{cliente.total_pedidos} pedidos</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-green-600">{formatCurrency(cliente.total_gastado)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </motion.div>
-      )}
+        )}
+
+        {/* Top por Cantidad de Pedidos */}
+        {clientes?.top_por_pedidos && clientes.top_por_pedidos.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-blue-500" />
+              Top 10 por Cantidad de Pedidos
+            </h3>
+            
+            <div className="space-y-2">
+              {clientes.top_por_pedidos.map((cliente, idx) => (
+                <div 
+                  key={cliente.telefono} 
+                  onClick={() => handleClienteClick(cliente.telefono)}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
+                >
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                    idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-400' : 'bg-gray-300'
+                  }`}>
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-800 truncate">{cliente.nombre || 'Sin nombre'}</div>
+                    <div className="text-xs text-gray-400">{formatCurrency(cliente.total_gastado)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-blue-600">{cliente.total_pedidos}</div>
+                    <div className="text-xs text-gray-400">pedidos</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </motion.div>
 
       {/* Insights y Recomendaciones */}
       <motion.div

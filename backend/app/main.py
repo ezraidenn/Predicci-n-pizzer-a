@@ -856,6 +856,9 @@ async def get_reporte_resumen():
         
         dias_analisis = []
         for dia in range(7):
+            # Excluir martes (día 1) - la tienda está cerrada
+            if dia == 1:
+                continue
             if dia in ventas_por_dia.index:
                 dias_analisis.append({
                     "dia": dias_nombres[dia],
@@ -865,10 +868,10 @@ async def get_reporte_resumen():
                     "total_pedidos": int(ventas_por_dia.loc[dia, ('total_pedidos', 'sum')])
                 })
         
-        # Mejor y peor día
-        mejor_dia = max(dias_analisis, key=lambda x: x['ventas_promedio'])
-        peor_dia = min([d for d in dias_analisis if d['ventas_promedio'] > 0], 
-                      key=lambda x: x['ventas_promedio'])
+        # Mejor y peor día (excluyendo martes)
+        dias_con_ventas = [d for d in dias_analisis if d['ventas_promedio'] > 0]
+        mejor_dia = max(dias_con_ventas, key=lambda x: x['ventas_promedio']) if dias_con_ventas else None
+        peor_dia = min(dias_con_ventas, key=lambda x: x['ventas_promedio']) if dias_con_ventas else None
         
         # Tendencia mensual
         ventas_mensuales = df.groupby(df['fecha'].dt.to_period('M'))['total_ventas_dia'].sum()

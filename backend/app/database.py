@@ -615,10 +615,17 @@ class SalesDatabase:
             cursor.execute("SELECT COUNT(*) FROM clientes WHERE total_pedidos >= 5")
             clientes_muy_frecuentes = cursor.fetchone()[0]
             
-            # Top 10 mejores clientes
-            top_clientes = pd.read_sql_query(
+            # Top 10 por dinero gastado
+            top_por_dinero = pd.read_sql_query(
                 """SELECT nombre, telefono, total_pedidos, total_gastado, ticket_promedio
                    FROM clientes ORDER BY total_gastado DESC LIMIT 10""",
+                conn
+            )
+            
+            # Top 10 por cantidad de pedidos
+            top_por_pedidos = pd.read_sql_query(
+                """SELECT nombre, telefono, total_pedidos, total_gastado, ticket_promedio
+                   FROM clientes ORDER BY total_pedidos DESC LIMIT 10""",
                 conn
             )
             
@@ -630,7 +637,9 @@ class SalesDatabase:
                 "gasto_promedio_por_cliente": round(gasto_promedio, 2),
                 "ticket_promedio_global": round(ticket_promedio, 2),
                 "tasa_retencion": round((total_clientes - clientes_unicos) / total_clientes * 100, 1) if total_clientes > 0 else 0,
-                "top_clientes": top_clientes.to_dict('records')
+                "top_clientes": top_por_dinero.to_dict('records'),
+                "top_por_dinero": top_por_dinero.to_dict('records'),
+                "top_por_pedidos": top_por_pedidos.to_dict('records')
             }
     
     def buscar_cliente(self, query: str) -> pd.DataFrame:
