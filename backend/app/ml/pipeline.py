@@ -172,6 +172,9 @@ class MLPipeline:
             'training_duration_seconds': duration
         })
         
+        # Guardar feature_names en metadata
+        self.metadata['feature_names'] = self.feature_engineer.feature_names
+        
         self._save_metadata()
         
         # 7. Registrar entrenamiento en tracker
@@ -362,8 +365,15 @@ class MLPipeline:
     def _save_metadata(self):
         """Guarda metadata del pipeline"""
         path = self.models_dir / "pipeline_metadata.json"
+        
+        # Asegurar que feature_names esté en metadata
+        if self.feature_engineer.feature_names:
+            self.metadata['feature_names'] = self.feature_engineer.feature_names
+        
         with open(path, 'w') as f:
             json.dump(self.metadata, f, indent=2, default=str)
+        
+        logger.info(f"✅ Metadata guardado con {len(self.metadata.get('feature_names', []))} features")
     
     def load_models(self):
         """Carga modelos guardados"""

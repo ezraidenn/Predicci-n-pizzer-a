@@ -44,11 +44,13 @@ class EnsembleModel:
         # Promedios históricos por día de semana
         self.historical_avg = {}
         
-        # Pesos del ensemble (ajustados durante entrenamiento)
+        # Pesos del ensemble (ajustados para mejor captura de estacionalidad)
+        # Historical captura bien la estacionalidad semanal
+        # LightGBM captura tendencias y eventos especiales
         self.weights = {
-            'lgbm': 0.6,
-            'ridge': 0.25,
-            'historical': 0.15
+            'lgbm': 0.35,
+            'ridge': 0.15,
+            'historical': 0.50  # Mayor peso a histórico por día de semana
         }
         
         self.feature_names = []
@@ -77,12 +79,16 @@ class EnsembleModel:
         self.ridge = Ridge(alpha=1.0)
         self.ridge.fit(X_scaled, y)
         
-        # 3. Calcular promedios históricos
+        # 3. Calcular promedios históricos por día de semana
         if df_original is not None and 'fecha' in df_original.columns:
-            logger.info("Calculando promedios históricos...")
-            df_temp = df_original.copy()
+            logger.info("Calculando promedios históricos por día de semana...")
+            df_temp = df_original.copy().reset_index(drop=True)
             df_temp['fecha'] = pd.to_datetime(df_temp['fecha'])
             df_temp['dia_semana'] = df_temp['fecha'].dt.dayofweek
+            
+            # Agregar el target al df_temp para calcular correctamente
+            y_reset = y.reset_index(drop=True)
+            df_temp['target'] = y_reset.values
             
             # Usar solo los últimos 60 días para promedios más recientes
             if len(df_temp) > 60:
@@ -91,10 +97,12 @@ class EnsembleModel:
             for dia in range(7):
                 subset = df_temp[df_temp['dia_semana'] == dia]
                 if len(subset) > 0:
+                    # Usar mediana en lugar de media para ser más robusto a outliers
                     self.historical_avg[dia] = {
-                        'mean': float(y[subset.index].mean()) if len(subset.index.intersection(y.index)) > 0 else float(y.mean()),
-                        'std': float(y[subset.index].std()) if len(subset.index.intersection(y.index)) > 0 else float(y.std())
+                        'mean': float(subset['target'].median()),  # Mediana es más estable
+                        'std': float(subset['target'].std()) if len(subset) > 1 else float(y.std())
                     }
+                    logger.info(f"  Día {dia}: mediana=${subset['target'].median():,.0f}, n={len(subset)}")
                 else:
                     self.historical_avg[dia] = {
                         'mean': float(y.mean()),
