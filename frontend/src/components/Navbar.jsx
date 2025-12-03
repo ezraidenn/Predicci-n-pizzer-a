@@ -12,58 +12,81 @@ export default function Navbar({ onDataUpdate, onPredictionsUpdate, onInsightUpd
   const [resetting, setResetting] = useState(false)
   const [showDropzone, setShowDropzone] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [filesProcessed, setFilesProcessed] = useState({ current: 0, total: 0 })
 
   const onDrop = useCallback(async (acceptedFiles) => {
     if (acceptedFiles.length === 0) return
 
-    const file = acceptedFiles[0]
     setUploading(true)
     setLoading(true)
     setUploadProgress(0)
+    setFilesProcessed({ current: 0, total: acceptedFiles.length })
 
     try {
-      // 1. Subir archivo
-      const formData = new FormData()
-      formData.append('file', file)
-
-      setUploadProgress(25)
-      const uploadResponse = await axios.post(`${API_URL}/upload_excel`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      // Procesar cada archivo
+      let successCount = 0
+      let errorMessages = []
+      
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i]
+        setFilesProcessed({ current: i + 1, total: acceptedFiles.length })
+        setUploadProgress(Math.round((i / acceptedFiles.length) * 60))
+        
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          
+          const uploadResponse = await axios.post(`${API_URL}/upload_excel`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+          
+          successCount++
+          
+          // Mostrar mensaje si hay duplicados
+          if (uploadResponse.data.message && uploadResponse.data.message.includes('duplicadas')) {
+            console.log(`${file.name}: ${uploadResponse.data.message}`)
+          }
+        } catch (error) {
+          errorMessages.push(`${file.name}: ${error.response?.data?.detail || error.message}`)
+        }
+      }
 
       // Cargar datos históricos completos
       const historicalResponse = await axios.get(`${API_URL}/historical`)
       onDataUpdate(historicalResponse.data)
       setHasHistoricalData(true)
-      
-      // Mostrar mensaje si hay duplicados
-      if (uploadResponse.data.message && uploadResponse.data.message.includes('duplicadas')) {
-        alert(uploadResponse.data.message)
-      }
-      
-      setUploadProgress(50)
+      setUploadProgress(70)
 
-      // 2. Entrenar modelos
+      // Entrenar modelos una sola vez al final
       await axios.post(`${API_URL}/train_model`)
-      setUploadProgress(75)
+      setUploadProgress(85)
 
-      // 3. Obtener predicciones
+      // Obtener predicciones
       const predResponse = await axios.get(`${API_URL}/predict?days=7`)
       onPredictionsUpdate(predResponse.data.predictions)
-      setUploadProgress(90)
+      setUploadProgress(95)
 
-      // 4. Generar insights
+      // Generar insights
       const insightResponse = await axios.post(`${API_URL}/insight`)
       onInsightUpdate(insightResponse.data.insight)
       setUploadProgress(100)
 
       setShowDropzone(false)
+      
+      // Mostrar resumen
+      if (errorMessages.length > 0) {
+        alert(`✅ ${successCount} archivos procesados\n❌ ${errorMessages.length} errores:\n\n${errorMessages.join('\n')}`)
+      } else {
+        alert(`✅ ${successCount} archivo(s) procesados exitosamente!`)
+      }
+      
     } catch (error) {
-      console.error('Error procesando archivo:', error)
-      alert('Error procesando archivo: ' + (error.response?.data?.detail || error.message))
+      console.error('Error procesando archivos:', error)
+      alert('Error procesando archivos: ' + (error.response?.data?.detail || error.message))
     } finally {
       setUploading(false)
       setLoading(false)
+      setFilesProcessed({ current: 0, total: 0 })
       setTimeout(() => setUploadProgress(0), 1000)
     }
   }, [onDataUpdate, onPredictionsUpdate, onInsightUpdate, setLoading])
@@ -74,7 +97,7 @@ export default function Navbar({ onDataUpdate, onPredictionsUpdate, onInsightUpd
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-excel': ['.xls']
     },
-    maxFiles: 1,
+    multiple: true,  // Permitir múltiples archivos
     disabled: uploading
   })
 
@@ -311,9 +334,9 @@ export default function Navbar({ onDataUpdate, onPredictionsUpdate, onInsightUpd
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-gray-200">
-              <h2 className="text-2xl font-bold mb-4 text-gray-800">Subir Archivo Excel</h2>
+              <h2 className="text-2xl font-bold mb-4 text-gray-800">Subir Archivos Excel</h2>
               <p className="text-gray-600 mb-6">
-                Arrastra tu archivo Excel o haz clic para seleccionarlo
+                Arrastra tus archivos Excel o haz clic para seleccionarlos (puedes subir varios a la vez)
               </p>
 
               <div
@@ -327,14 +350,23 @@ export default function Navbar({ onDataUpdate, onPredictionsUpdate, onInsightUpd
                 <input {...getInputProps()} />
                 <Upload className="w-16 h-16 mx-auto mb-4 text-primary-600" />
                 {isDragActive ? (
-                  <p className="text-primary-600 font-semibold">Suelta el archivo aquí...</p>
+                  <p className="text-primary-600 font-semibold">Suelta los archivos aquí...</p>
+                ) : uploading ? (
+                  <>
+                    <p className="text-primary-600 font-semibold mb-2">
+                      Procesando archivo {filesProcessed.current} de {filesProcessed.total}...
+                    </p>
+                    <p className="text-gray-600 text-sm">
+                      Por favor espera
+                    </p>
+                  </>
                 ) : (
                   <>
                     <p className="text-gray-800 font-semibold mb-2">
-                      Arrastra y suelta tu archivo Excel
+                      Arrastra y suelta tus archivos Excel
                     </p>
                     <p className="text-gray-600 text-sm">
-                      o haz clic para seleccionar (.xlsx, .xls)
+                      o haz clic para seleccionar múltiples (.xlsx, .xls)
                     </p>
                   </>
                 )}
