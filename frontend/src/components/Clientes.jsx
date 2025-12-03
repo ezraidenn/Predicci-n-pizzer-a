@@ -135,28 +135,6 @@ export default function Clientes() {
         </motion.div>
       </div>
 
-      {/* Búsqueda */}
-      <div className="bg-white rounded-xl shadow-lg p-4">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o teléfono..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-          >
-            Buscar
-          </button>
-        </div>
-      </div>
 
       {/* Top Clientes */}
       {stats?.top_clientes && stats.top_clientes.length > 0 && (
@@ -194,10 +172,40 @@ export default function Clientes() {
         </div>
       )}
 
-      {/* Lista de Clientes */}
+      {/* Lista de Clientes con Búsqueda integrada */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        {/* Header con búsqueda */}
         <div className="p-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800">Todos los Clientes ({clientes.length})</h3>
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <h3 className="font-bold text-gray-800">Todos los Clientes ({clientes.length})</h3>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Buscar nombre o teléfono..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+              <button
+                onClick={handleSearch}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
+              >
+                Buscar
+              </button>
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(''); fetchData(); }}
+                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+          </div>
         </div>
         
         <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
