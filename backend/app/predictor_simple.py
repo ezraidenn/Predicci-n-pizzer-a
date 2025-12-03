@@ -179,13 +179,18 @@ class PredictorSimple:
                 logger.info(f"{pred_date.date()} ({dia_nombre}): CERRADO - Saltando predicción")
                 continue
             
-            # Variabilidad natural basada en posición en el mes y semana
-            # Esto hace que cada día tenga una predicción ligeramente diferente
+            # Variabilidad natural basada en posición en el mes
+            # Esto hace que cada día tenga una predicción diferente
             dia_mes = pred_date.day
-            semana_mes = (dia_mes - 1) // 7 + 1  # Semana 1-5 del mes
             
-            # Factor de variabilidad: ±3% basado en día del mes
-            variabilidad = 1.0 + ((dia_mes % 7) - 3) * 0.01  # Entre 0.97 y 1.03
+            # Factor de variabilidad: ±5% basado en día del mes (más notable)
+            # Días 1-10: factor bajo, 11-20: factor medio, 21-31: factor alto
+            if dia_mes <= 10:
+                variabilidad = 0.96 + (dia_mes * 0.004)  # 0.96 a 1.00
+            elif dia_mes <= 20:
+                variabilidad = 1.00 + ((dia_mes - 10) * 0.005)  # 1.00 a 1.05
+            else:
+                variabilidad = 1.02 + ((dia_mes - 20) * 0.003)  # 1.02 a 1.05
             
             # Obtener predicción base del día
             pizzas_base = float(self.promedios[dia_semana]['pizzas_vendidas']['base'])
