@@ -135,6 +135,28 @@ class ETLProcessor:
         # Categorizar productos
         df['Nombre'] = df[nombre_col].astype(str).str.lower()
         
+        # === DETECTAR PAQUETES DE MÚLTIPLES PIZZAS ===
+        # "2 pizzas grandes", "2 pizzas de 3 ing", etc. = 2 pizzas por unidad
+        # "3 pizzas", etc. = 3 pizzas por unidad
+        df['multiplicador_pizza'] = 1  # Por defecto 1 pizza
+        
+        # Detectar "2 pizzas" en el nombre
+        df.loc[df['Nombre'].str.contains(r'2\s*pizzas?', na=False, case=False, regex=True), 'multiplicador_pizza'] = 2
+        
+        # Detectar "3 pizzas" en el nombre
+        df.loc[df['Nombre'].str.contains(r'3\s*pizzas?', na=False, case=False, regex=True), 'multiplicador_pizza'] = 3
+        
+        # Detectar "4 pizzas" en el nombre
+        df.loc[df['Nombre'].str.contains(r'4\s*pizzas?', na=False, case=False, regex=True), 'multiplicador_pizza'] = 4
+        
+        # Log para debug
+        paquetes_2 = df[df['multiplicador_pizza'] == 2]
+        paquetes_3 = df[df['multiplicador_pizza'] == 3]
+        if len(paquetes_2) > 0:
+            logger.info(f"🍕 Detectados {len(paquetes_2)} productos de 2 pizzas")
+        if len(paquetes_3) > 0:
+            logger.info(f"🍕 Detectados {len(paquetes_3)} productos de 3 pizzas")
+        
         # Identificar categorías
         df['es_pizza'] = df['Nombre'].str.contains('pizza', na=False, case=False)
         df['es_pizza_pastor'] = df['Nombre'].str.contains('pastor', na=False, case=False)
@@ -143,12 +165,20 @@ class ETLProcessor:
         df['es_baguette'] = df['Nombre'].str.contains('baguette', na=False, case=False)
         df['es_papas_gajo'] = df['Nombre'].str.contains('papas gajo|papa gajo|papas a gajo|orden de papas', na=False, case=False)
         
-        # Si existe columna Categoría, usarla también
+        # También considerar categoría "Paquetes" que contenga "pizza" como pizza
         if categoria_col in df.columns:
             df['Categoría'] = df[categoria_col].astype(str).str.lower()
+            # Paquetes con pizza en el nombre también cuentan
+            df['es_pizza'] = df['es_pizza'] | (
+                df['Categoría'].str.contains('paquete', na=False, case=False) & 
+                df['Nombre'].str.contains('pizza', na=False, case=False)
+            )
             df['es_pizza'] = df['es_pizza'] | df['Categoría'].str.contains('pizza', na=False, case=False)
             df['es_baguette'] = df['es_baguette'] | df['Categoría'].str.contains('baguette', na=False, case=False)
             df['es_papas_gajo'] = df['es_papas_gajo'] | df['Categoría'].str.contains('papas|papa', na=False, case=False)
+        
+        # Calcular cantidad real de pizzas (cantidad * multiplicador)
+        df['cantidad_pizzas_real'] = df['Cantidad'] * df['multiplicador_pizza']
         
         return df
     
@@ -219,10 +249,13 @@ class ETLProcessor:
         pedidos_daily = pedidos_daily.drop('tipo_servicio_dict', axis=1)
         
         # Agregar detalles por día
+        # IMPORTANTE: Para pizzas, usar cantidad_pizzas_real que ya considera paquetes de 2, 3, 4 pizzas
         detalles_daily = df_detalles.groupby('fecha').agg({
-            'es_pizza': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
-            'es_pizza_pastor': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
-            'es_pizza_chuleta': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
+            # Pizzas: usar cantidad_pizzas_real (considera multiplicador por paquetes)
+            'es_pizza': lambda x: (x * df_detalles.loc[x.index, 'cantidad_pizzas_real']).sum(),
+            'es_pizza_pastor': lambda x: (x * df_detalles.loc[x.index, 'cantidad_pizzas_real']).sum(),
+            'es_pizza_chuleta': lambda x: (x * df_detalles.loc[x.index, 'cantidad_pizzas_real']).sum(),
+            # Otros productos: usar Cantidad normal
             'es_alitas': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
             'es_baguette': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
             'es_papas_gajo': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
