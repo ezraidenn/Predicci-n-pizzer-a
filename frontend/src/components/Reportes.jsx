@@ -184,7 +184,7 @@ export default function Reportes() {
           {/* Mejor día */}
           <div className="bg-green-50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-green-700 mb-2">
-              <Award className="w-5 h-5" />
+              <Star className="w-5 h-5" />
               <span className="font-medium">Mejor Día de la Semana</span>
             </div>
             <div className="text-3xl font-bold text-green-800">
