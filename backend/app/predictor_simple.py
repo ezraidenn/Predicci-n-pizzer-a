@@ -153,6 +153,21 @@ class PredictorSimple:
             4: 'Viernes', 5: 'Sábado', 6: 'Domingo'
         }
         
+        # Calcular tendencia reciente (últimas 4 semanas vs anteriores)
+        df_recent = df.tail(28)  # Últimas 4 semanas
+        df_older = df.tail(56).head(28)  # 4 semanas anteriores
+        
+        tendencia_factor = 1.0
+        if len(df_recent) > 0 and len(df_older) > 0:
+            ventas_recientes = df_recent['total_ventas_dia'].mean()
+            ventas_anteriores = df_older['total_ventas_dia'].mean()
+            if ventas_anteriores > 0:
+                tendencia_factor = ventas_recientes / ventas_anteriores
+                # Limitar el factor entre 0.85 y 1.15
+                tendencia_factor = max(0.85, min(1.15, tendencia_factor))
+        
+        logger.info(f"Factor de tendencia reciente: {tendencia_factor:.3f}")
+        
         # Empezar desde day=0 (HOY) hasta days-1 días en el futuro
         for day in range(0, days):
             pred_date = last_date + timedelta(days=day)
@@ -163,6 +178,14 @@ class PredictorSimple:
             if dia_semana == 1:
                 logger.info(f"{pred_date.date()} ({dia_nombre}): CERRADO - Saltando predicción")
                 continue
+            
+            # Variabilidad natural basada en posición en el mes y semana
+            # Esto hace que cada día tenga una predicción ligeramente diferente
+            dia_mes = pred_date.day
+            semana_mes = (dia_mes - 1) // 7 + 1  # Semana 1-5 del mes
+            
+            # Factor de variabilidad: ±3% basado en día del mes
+            variabilidad = 1.0 + ((dia_mes % 7) - 3) * 0.01  # Entre 0.97 y 1.03
             
             # Obtener predicción base del día
             pizzas_base = float(self.promedios[dia_semana]['pizzas_vendidas']['base'])
@@ -175,14 +198,17 @@ class PredictorSimple:
             
             # Aplicar multiplicadores por quincenas/festivos
             evento_info = self.calendario.get_multiplicador_total(pred_date)
-            multiplicador = evento_info['multiplicador']
+            multiplicador_evento = evento_info['multiplicador']
+            
+            # Multiplicador total = evento * tendencia * variabilidad
+            multiplicador = multiplicador_evento * tendencia_factor * variabilidad
             
             # Aplicar multiplicador a predicciones
             pred_values = {
                 'fecha': pred_date,
                 'dia_nombre': dia_nombre,
                 
-                # Base ajustada por eventos
+                # Base ajustada por eventos, tendencia y variabilidad
                 'pizzas_vendidas': float(pizzas_base * multiplicador),
                 'pizzas_pastor': float(pastor_base * multiplicador),
                 'pizzas_chuleta': float(chuleta_base * multiplicador),
@@ -222,13 +248,17 @@ class PredictorSimple:
                 # Info del evento
                 'evento': evento_info['evento'],
                 'multiplicador': multiplicador,
+                'multiplicador_evento': multiplicador_evento,
+                'tendencia_factor': tendencia_factor,
+                'variabilidad': variabilidad,
             }
             
             predictions.append(pred_values)
             
             # Log con info de evento
-            evento_str = f" 🎉 {evento_info['evento']} (+{(multiplicador-1)*100:.0f}%)" if evento_info['evento'] else ""
-            logger.info(f"{pred_date.date()} ({dia_nombre}){evento_str}: {pred_values['pizzas_vendidas']:.0f} pizzas ({pred_values['pizzas_min']:.0f}-{pred_values['pizzas_max']:.0f}), ${pred_values['total_ventas_dia']:,.0f} (${pred_values['ventas_min']:,.0f}-${pred_values['ventas_max']:,.0f})")
+            evento_str = f" 🎉 {evento_info['evento']}" if evento_info['evento'] else ""
+            ajuste_str = f" [tend:{tendencia_factor:.2f} var:{variabilidad:.2f}]"
+            logger.info(f"{pred_date.date()} ({dia_nombre}){evento_str}{ajuste_str}: {pred_values['pizzas_vendidas']:.0f} pizzas, ${pred_values['total_ventas_dia']:,.0f}")
         
         return predictions
     
