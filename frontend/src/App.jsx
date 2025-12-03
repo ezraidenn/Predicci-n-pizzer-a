@@ -4,8 +4,10 @@ import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import Dashboard from './components/Dashboard'
 import Analytics from './components/Analytics'
+import Clientes from './components/Clientes'
+import Reportes from './components/Reportes'
 import { motion } from 'framer-motion'
-import { BarChart3, Home } from 'lucide-react'
+import { BarChart3, Home, Users, FileText } from 'lucide-react'
 
 const API_URL = '/api'
 
@@ -15,7 +17,7 @@ function App() {
   const [insight, setInsight] = useState('')
   const [loading, setLoading] = useState(false)
   const [hasHistoricalData, setHasHistoricalData] = useState(false)
-  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' o 'analytics'
+  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard', 'analytics', 'clientes', 'reportes'
 
   // Cargar datos históricos al iniciar
   useEffect(() => {
@@ -58,30 +60,50 @@ function App() {
         ) : (
           <>
             {/* Navigation Tabs */}
-            <div className="flex gap-4 mb-6">
+            <div className="flex flex-wrap gap-3 mb-6">
               <button
                 onClick={() => setCurrentView('dashboard')}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
                   currentView === 'dashboard'
-                    ? 'text-white shadow-lg'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border-2 border-gray-300'
+                    ? 'bg-green-600 text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
-                style={currentView === 'dashboard' ? {backgroundColor: '#16a34a'} : {}}
               >
-                <Home className="w-5 h-5" />
+                <Home className="w-4 h-4" />
                 Dashboard
               </button>
               <button
                 onClick={() => setCurrentView('analytics')}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
                   currentView === 'analytics'
-                    ? 'text-white shadow-lg'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border-2 border-gray-300'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
-                style={currentView === 'analytics' ? {backgroundColor: '#16a34a'} : {}}
               >
-                <BarChart3 className="w-5 h-5" />
-                Análisis Detallado
+                <BarChart3 className="w-4 h-4" />
+                Análisis
+              </button>
+              <button
+                onClick={() => setCurrentView('clientes')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
+                  currentView === 'clientes'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Clientes
+              </button>
+              <button
+                onClick={() => setCurrentView('reportes')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
+                  currentView === 'reportes'
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                Reportes
               </button>
             </div>
 
@@ -92,16 +114,17 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {currentView === 'dashboard' ? (
+              {currentView === 'dashboard' && (
                 <Dashboard 
                   data={data}
                   predictions={predictions}
                   insight={insight}
                   loading={loading}
                 />
-              ) : (
-                <Analytics />
               )}
+              {currentView === 'analytics' && <Analytics />}
+              {currentView === 'clientes' && <Clientes />}
+              {currentView === 'reportes' && <Reportes />}
             </motion.div>
           </>
         )}

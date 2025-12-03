@@ -223,11 +223,11 @@ class MLPipeline:
         df_historical['fecha'] = pd.to_datetime(df_historical['fecha'])
         df_historical = df_historical.sort_values('fecha')
         
-        # Fechas a predecir (desde mañana)
+        # Fechas a predecir (desde HOY)
         today = datetime.now().date()
         future_dates = []
         
-        for i in range(1, days + 15):  # Pedir más días para saltar martes
+        for i in range(0, days + 15):  # Empezar desde HOY (i=0), pedir más días para saltar martes
             fecha = today + timedelta(days=i)
             dia_semana = fecha.weekday()
             
