@@ -1,0 +1,148 @@
+{
+  "version": "2.0.0",
+  "last_trained": "2025-12-03T11:08:12.743382",
+  "n_registros": 302,
+  "metrics": {
+    "total_ventas_dia": {
+      "mae": 1196.3846979336117,
+      "rmse": 1702.7042654593893,
+      "mape": 92.17665678316806
+    },
+    "pizzas_vendidas": {
+      "mae": 4.788614795442787,
+      "rmse": 6.364858103441392,
+      "mape": 52.07797147762942
+    },
+    "pizzas_pastor": {
+      "mae": 2.5462735263199345,
+      "rmse": 3.1576797180218144,
+      "mape": 49.54084648631253
+    },
+    "pizzas_chuleta": {
+      "mae": 1.1236814101978374,
+      "rmse": 1.4473331086794574,
+      "mape": 53.36250655422775
+    },
+    "alitas_vendidas": {
+      "mae": 0.922158361630057,
+      "rmse": 1.1525135289164474,
+      "mape": 74.19522488885619
+    },
+    "baguettes_vendidas": {
+      "mae": 2.6295548073611386,
+      "rmse": 3.341778959522807,
+      "mape": 47.142194271245145
+    },
+    "papas_gajo_vendidas": {
+      "mae": 1.5858204033478713,
+      "rmse": 1.8866259124512694,
+      "mape": 63.17642151377053
+    }
+  },
+  "feature_importance": [
+    {
+      "feature": "total_ventas_dia_ratio_ma7",
+      "importance": 661.0,
+      "importance_pct": 14.151145365018197
+    },
+    {
+      "feature": "total_ventas_dia_ma_7",
+      "importance": 491.0,
+      "importance_pct": 10.511667737101263
+    },
+    {
+      "feature": "total_ventas_dia_lag_1",
+      "importance": 366.0,
+      "importance_pct": 7.83558124598587
+    },
+    {
+      "feature": "quincena_x_dia_6",
+      "importance": 315.0,
+      "importance_pct": 6.74373795761079
+    },
+    {
+      "feature": "pizzas_vendidas_ma_7",
+      "importance": 301.0,
+      "importance_pct": 6.444016270605866
+    },
+    {
+      "feature": "total_ventas_dia_std_14",
+      "importance": 276.0,
+      "importance_pct": 5.908798972382788
+    },
+    {
+      "feature": "pizzas_vendidas_lag_1",
+      "importance": 223.0,
+      "importance_pct": 4.77413830014986
+    },
+    {
+      "feature": "dia_mes",
+      "importance": 219.0,
+      "importance_pct": 4.688503532434169
+    },
+    {
+      "feature": "pizzas_vendidas_ratio_ma7",
+      "importance": 202.0,
+      "importance_pct": 4.324555769642475
+    },
+    {
+      "feature": "total_ventas_dia_std_7",
+      "importance": 185.0,
+      "importance_pct": 3.9606080068507814
+    },
+    {
+      "feature": "pizzas_vendidas_std_7",
+      "importance": 182.0,
+      "importance_pct": 3.896381931064012
+    },
+    {
+      "feature": "total_ventas_dia_lag_7",
+      "importance": 163.0,
+      "importance_pct": 3.4896167844144723
+    },
+    {
+      "feature": "pizzas_vendidas_std_14",
+      "importance": 163.0,
+      "importance_pct": 3.4896167844144723
+    },
+    {
+      "feature": "total_ventas_dia_lag_14",
+      "importance": 155.0,
+      "importance_pct": 3.3183472489830868
+    },
+    {
+      "feature": "cos_year_1",
+      "importance": 141.0,
+      "importance_pct": 3.0186255619781632
+    },
+    {
+      "feature": "total_ventas_dia_ma_14",
+      "importance": 137.0,
+      "importance_pct": 2.9329907942624707
+    },
+    {
+      "feature": "total_ventas_dia_lag_21",
+      "importance": 133.0,
+      "importance_pct": 2.847356026546778
+    },
+    {
+      "feature": "sin_year_2",
+      "importance": 122.0,
+      "importance_pct": 2.6118604153286236
+    },
+    {
+      "feature": "total_ventas_dia_lag_28",
+      "importance": 119.0,
+      "importance_pct": 2.547634339541854
+    },
+    {
+      "feature": "cos_month_2",
+      "importance": 117.0,
+      "importance_pct": 2.5048169556840074
+    }
+  ],
+  "fecha_inicio": "2024-11-01",
+  "fecha_fin": "2025-11-10",
+  "anomalies_detected": 16,
+  "training_duration_seconds": 6.576817035675049
+}

@@ -11,6 +11,7 @@ import pandas as pd
 
 from app.etl_processor import ETLProcessor
 from app.predictor_simple import PredictorSimple
+from app.predictor_pro import PredictorPro
 from app.gpt_insights import GPTInsightGenerator
 from app.database import SalesDatabase
 
@@ -24,8 +25,8 @@ logger = logging.getLogger(__name__)
 # Inicializar FastAPI
 app = FastAPI(
     title="Pizzería MAX - Predicción de Ventas API",
-    description="Sistema inteligente de predicción de ventas con IA",
-    version="1.0.0"
+    description="Sistema inteligente de predicción de ventas con ML Profesional",
+    version="2.0.0"
 )
 
 # CORS para permitir conexión con frontend React
@@ -48,7 +49,9 @@ MODELS_DIR.mkdir(exist_ok=True)
 
 # Inicializar procesadores
 etl_processor = ETLProcessor(DATA_DIR)
-predictor = PredictorSimple(MODELS_DIR)
+predictor_simple = PredictorSimple(MODELS_DIR)  # Predictor básico (promedios)
+predictor_pro = PredictorPro(MODELS_DIR, DATA_DIR)  # Predictor ML avanzado
+predictor = predictor_pro  # Usar el predictor profesional por defecto
 gpt_generator = GPTInsightGenerator()
 db = SalesDatabase(DATA_DIR / "pizzeria_max.db")
 
@@ -568,6 +571,136 @@ async def generate_insight():
     except Exception as e:
         logger.error(f"Error generando insight: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+# ==================== ENDPOINTS ML AVANZADO ====================
+
+@app.get("/model/info")
+async def get_model_info():
+    """
+    Obtiene información del modelo ML actual
+    
+    Returns:
+        JSON con versión, métricas, features importantes, etc.
+    """
+    try:
+        info = predictor.get_model_info()
+        return JSONResponse(content={
+            "success": True,
+            "model_info": info
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo info del modelo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/model/accuracy")
+async def get_model_accuracy(days: int = 30):
+    """
+    Obtiene métricas de precisión del modelo
+    
+    Args:
+        days: Días a evaluar (default: 30)
+        
+    Returns:
+        JSON con MAPE, MAE, coverage por variable
+    """
+    try:
+        report = predictor.get_accuracy_report(days)
+        return JSONResponse(content={
+            "success": True,
+            "accuracy_report": report
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo precisión: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/model/features")
+async def get_feature_importance(top_n: int = 20):
+    """
+    Obtiene las features más importantes del modelo
+    
+    Args:
+        top_n: Número de features a retornar
+        
+    Returns:
+        JSON con features ordenadas por importancia
+    """
+    try:
+        importance = predictor.get_feature_importance(top_n)
+        return JSONResponse(content={
+            "success": True,
+            "feature_importance": importance
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo features: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/model/retrain-check")
+async def check_retrain_needed():
+    """
+    Evalúa si el modelo necesita reentrenamiento
+    
+    Returns:
+        JSON con recomendación y razones
+    """
+    try:
+        result = predictor.should_retrain()
+        return JSONResponse(content={
+            "success": True,
+            "retrain_check": result
+        })
+    except Exception as e:
+        logger.error(f"Error evaluando reentrenamiento: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/predict/advanced")
+async def get_advanced_predictions(days: int = 7):
+    """
+    Predicciones avanzadas con intervalos de confianza reales
+    
+    Args:
+        days: Días a predecir
+        
+    Returns:
+        JSON con predicciones, intervalos, y metadata del modelo
+    """
+    try:
+        data_file = DATA_DIR / "ventas_diarias.parquet"
+        if not data_file.exists():
+            raise HTTPException(status_code=400, detail="No hay datos procesados")
+        
+        # Cargar modelos
+        predictor.cargar_modelos()
+        
+        # Generar predicciones
+        predictions = predictor.predict_next_days(data_file, days=days)
+        
+        # Convertir fechas a string
+        for pred in predictions:
+            pred['fecha'] = pred['fecha'].strftime('%Y-%m-%d') if hasattr(pred['fecha'], 'strftime') else str(pred['fecha'])
+        
+        # Obtener info del modelo
+        model_info = predictor.get_model_info()
+        
+        return JSONResponse(content={
+            "success": True,
+            "predictions": predictions,
+            "model_info": {
+                "version": model_info.get('version', '2.0.0'),
+                "last_trained": model_info.get('last_trained'),
+                "mape_validation": model_info.get('metrics', {}).get('total_ventas_dia', {}).get('mape')
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error en predicciones avanzadas: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
