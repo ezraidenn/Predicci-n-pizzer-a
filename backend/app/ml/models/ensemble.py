@@ -90,12 +90,37 @@ class EnsembleModel:
             y_reset = y.reset_index(drop=True)
             df_temp['target'] = y_reset.values
             
-            # Usar solo los últimos 60 días para promedios más recientes
-            if len(df_temp) > 60:
-                df_temp = df_temp.tail(60)
+            # === FILTRAR ANOMALÍAS (días atípicos como cortes de luz, etc.) ===
+            # Calcular estadísticas globales para detectar outliers
+            global_mean = df_temp['target'].mean()
+            global_std = df_temp['target'].std()
+            
+            # Umbral: menos del 30% del promedio global = día anómalo (cerrado parcial, etc.)
+            umbral_minimo = global_mean * 0.30
+            
+            # También filtrar días extremadamente altos (>3 std)
+            umbral_maximo = global_mean + (3 * global_std)
+            
+            # Filtrar anomalías
+            df_clean = df_temp[
+                (df_temp['target'] >= umbral_minimo) & 
+                (df_temp['target'] <= umbral_maximo)
+            ].copy()
+            
+            anomalias_filtradas = len(df_temp) - len(df_clean)
+            if anomalias_filtradas > 0:
+                logger.warning(f"  ⚠️ Filtrados {anomalias_filtradas} días anómalos (ventas < ${umbral_minimo:,.0f})")
+                # Mostrar cuáles se filtraron
+                anomalias = df_temp[df_temp['target'] < umbral_minimo]
+                for _, row in anomalias.iterrows():
+                    logger.warning(f"    - {row['fecha'].strftime('%Y-%m-%d')}: ${row['target']:,.0f}")
+            
+            # Usar solo los últimos 90 días para promedios más recientes (aumentado de 60)
+            if len(df_clean) > 90:
+                df_clean = df_clean.tail(90)
             
             for dia in range(7):
-                subset = df_temp[df_temp['dia_semana'] == dia]
+                subset = df_clean[df_clean['dia_semana'] == dia]
                 if len(subset) > 0:
                     # Usar mediana en lugar de media para ser más robusto a outliers
                     self.historical_avg[dia] = {

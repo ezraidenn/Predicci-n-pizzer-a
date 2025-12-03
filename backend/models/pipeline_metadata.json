@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "last_trained": "2025-12-03T11:16:51.131411",
+  "last_trained": "2025-12-03T11:20:55.116144",
   "n_registros": 302,
   "metrics": {
     "total_ventas_dia": {
@@ -144,7 +144,7 @@
   "fecha_inicio": "2024-11-01",
   "fecha_fin": "2025-11-10",
   "anomalies_detected": 16,
-  "training_duration_seconds": 6.7633795738220215,
+  "training_duration_seconds": 6.958954095840454,
   "feature_names": [
     "dia_semana",
     "dia_mes",
