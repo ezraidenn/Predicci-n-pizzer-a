@@ -219,7 +219,18 @@ class ETLProcessor:
     
     def _aggregate_daily(self, df_pedidos: pd.DataFrame, df_detalles: pd.DataFrame, 
                         df_visitas: pd.DataFrame) -> pd.DataFrame:
-        """Agrega datos por día"""
+        """Agrega datos por día con métricas avanzadas"""
+        
+        # === ANÁLISIS TEMPORAL POR HORA ===
+        if 'fecha_hora' not in df_pedidos.columns:
+            # Extraer hora del pedido si existe fecha completa
+            if 'Fecha de creación' in df_pedidos.columns:
+                df_pedidos['fecha_hora'] = pd.to_datetime(
+                    df_pedidos['Fecha de creación'], 
+                    format='%d/%m/%Y | %H:%M', 
+                    errors='coerce'
+                )
+                df_pedidos['hora'] = df_pedidos['fecha_hora'].dt.hour
         
         # Agregar pedidos por día
         pedidos_daily = df_pedidos.groupby('fecha').agg({
@@ -230,7 +241,43 @@ class ETLProcessor:
         pedidos_daily.columns = ['fecha', 'total_ventas_dia', 'tipo_servicio_dict']
         pedidos_daily['total_pedidos'] = df_pedidos.groupby('fecha').size().values
         
-        # Calcular porcentajes de tipo de servicio
+        # === TICKET PROMEDIO ===
+        pedidos_daily['ticket_promedio'] = (
+            pedidos_daily['total_ventas_dia'] / pedidos_daily['total_pedidos'].replace(0, 1)
+        ).round(2)
+        
+        # === ANÁLISIS POR HORA (pedidos en hora pico 18-22) ===
+        if 'hora' in df_pedidos.columns:
+            hora_pico = df_pedidos[df_pedidos['hora'].between(18, 22)].groupby('fecha').size()
+            hora_almuerzo = df_pedidos[df_pedidos['hora'].between(12, 15)].groupby('fecha').size()
+            
+            pedidos_daily = pedidos_daily.merge(
+                hora_pico.reset_index().rename(columns={0: 'pedidos_hora_pico'}),
+                on='fecha', how='left'
+            )
+            pedidos_daily = pedidos_daily.merge(
+                hora_almuerzo.reset_index().rename(columns={0: 'pedidos_hora_almuerzo'}),
+                on='fecha', how='left'
+            )
+            pedidos_daily['pedidos_hora_pico'] = pedidos_daily['pedidos_hora_pico'].fillna(0).astype(int)
+            pedidos_daily['pedidos_hora_almuerzo'] = pedidos_daily['pedidos_hora_almuerzo'].fillna(0).astype(int)
+        else:
+            pedidos_daily['pedidos_hora_pico'] = 0
+            pedidos_daily['pedidos_hora_almuerzo'] = 0
+        
+        # === VENTAS POR TIPO DE SERVICIO ===
+        def calc_ventas_servicio(df, fecha, tipo):
+            mask = (df['fecha'] == fecha) & (df['Tipo de servicio'].str.lower().str.contains(tipo, na=False))
+            return df.loc[mask, 'Total'].sum()
+        
+        pedidos_daily['ventas_domicilio'] = pedidos_daily['fecha'].apply(
+            lambda f: calc_ventas_servicio(df_pedidos, f, 'domicilio')
+        )
+        pedidos_daily['ventas_local'] = pedidos_daily['fecha'].apply(
+            lambda f: calc_ventas_servicio(df_pedidos, f, 'llevar')
+        )
+        
+        # === PORCENTAJES DE TIPO DE SERVICIO ===
         def calc_servicio_pct(row, tipo):
             if isinstance(row['tipo_servicio_dict'], dict):
                 total = sum(row['tipo_servicio_dict'].values())
@@ -275,6 +322,11 @@ class ETLProcessor:
         visitas_daily = df_visitas[visitas_cols].groupby('fecha').sum().reset_index()
         visitas_daily.columns = ['fecha', 'total_visitas', 'pedidos_iniciados', 'pedidos_creados']
         
+        # === TASA DE CONVERSIÓN ===
+        visitas_daily['tasa_conversion'] = (
+            visitas_daily['pedidos_creados'] / visitas_daily['total_visitas'].replace(0, 1) * 100
+        ).round(2)
+        
         # Combinar todos los datos
         df_daily = pedidos_daily.merge(detalles_daily, on='fecha', how='left')
         df_daily = df_daily.merge(visitas_daily, on='fecha', how='left')
@@ -291,15 +343,19 @@ class ETLProcessor:
         # Asegurar tipos correctos
         int_cols = ['total_pedidos', 'pizzas_vendidas', 'pizzas_pastor', 'pizzas_chuleta', 
                    'alitas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas', 
-                   'total_visitas', 'pedidos_iniciados', 'pedidos_creados']
+                   'total_visitas', 'pedidos_iniciados', 'pedidos_creados',
+                   'pedidos_hora_pico', 'pedidos_hora_almuerzo']
         for col in int_cols:
             if col in df_daily.columns:
                 df_daily[col] = pd.to_numeric(df_daily[col], errors='coerce').fillna(0).astype(int)
         
-        float_cols = ['total_ventas_dia', 'tipo_servicio_domicilio', 'tipo_servicio_llevar']
+        float_cols = ['total_ventas_dia', 'tipo_servicio_domicilio', 'tipo_servicio_llevar',
+                     'ticket_promedio', 'ventas_domicilio', 'ventas_local', 'tasa_conversion']
         for col in float_cols:
             if col in df_daily.columns:
                 df_daily[col] = pd.to_numeric(df_daily[col], errors='coerce').fillna(0.0).astype(float)
+        
+        logger.info(f"📊 Nuevas métricas agregadas: ticket_promedio, hora_pico, ventas_por_servicio, tasa_conversion")
         
         # Verificación final: reemplazar cualquier NaN, inf o -inf restante
         df_daily = df_daily.replace([float('inf'), float('-inf')], 0)

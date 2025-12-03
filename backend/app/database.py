@@ -43,12 +43,39 @@ class SalesDatabase:
                     total_visitas INTEGER,
                     pedidos_iniciados INTEGER,
                     pedidos_creados INTEGER,
-                    tipo_servicio_domicilio INTEGER,
-                    tipo_servicio_llevar INTEGER,
+                    tipo_servicio_domicilio REAL,
+                    tipo_servicio_llevar REAL,
+                    ticket_promedio REAL,
+                    pedidos_hora_pico INTEGER,
+                    pedidos_hora_almuerzo INTEGER,
+                    ventas_domicilio REAL,
+                    ventas_local REAL,
+                    tasa_conversion REAL,
+                    pizzas_pastor INTEGER,
+                    pizzas_chuleta INTEGER,
+                    alitas_vendidas INTEGER,
                     fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     archivo_origen TEXT
                 )
             """)
+            
+            # Agregar columnas nuevas si no existen (para tablas existentes)
+            nuevas_columnas = [
+                ('ticket_promedio', 'REAL'),
+                ('pedidos_hora_pico', 'INTEGER'),
+                ('pedidos_hora_almuerzo', 'INTEGER'),
+                ('ventas_domicilio', 'REAL'),
+                ('ventas_local', 'REAL'),
+                ('tasa_conversion', 'REAL'),
+                ('pizzas_pastor', 'INTEGER'),
+                ('pizzas_chuleta', 'INTEGER'),
+                ('alitas_vendidas', 'INTEGER'),
+            ]
+            for col_name, col_type in nuevas_columnas:
+                try:
+                    cursor.execute(f"ALTER TABLE ventas_diarias ADD COLUMN {col_name} {col_type} DEFAULT 0")
+                except sqlite3.OperationalError:
+                    pass  # Columna ya existe
             
             # Tabla de archivos procesados (para evitar duplicados)
             cursor.execute("""
@@ -132,6 +159,17 @@ class SalesDatabase:
             
             # Insertar o actualizar cada registro
             for _, row in df_copy.iterrows():
+                # Obtener valores con defaults para nuevas columnas
+                ticket_promedio = row.get('ticket_promedio', 0)
+                pedidos_hora_pico = row.get('pedidos_hora_pico', 0)
+                pedidos_hora_almuerzo = row.get('pedidos_hora_almuerzo', 0)
+                ventas_domicilio = row.get('ventas_domicilio', 0)
+                ventas_local = row.get('ventas_local', 0)
+                tasa_conversion = row.get('tasa_conversion', 0)
+                pizzas_pastor = row.get('pizzas_pastor', 0)
+                pizzas_chuleta = row.get('pizzas_chuleta', 0)
+                alitas_vendidas = row.get('alitas_vendidas', 0)
+                
                 if row['fecha'] in fechas_duplicadas:
                     # REEMPLAZAR registro existente (no sumar)
                     cursor.execute("""
@@ -146,6 +184,15 @@ class SalesDatabase:
                             pedidos_creados = ?,
                             tipo_servicio_domicilio = ?,
                             tipo_servicio_llevar = ?,
+                            ticket_promedio = ?,
+                            pedidos_hora_pico = ?,
+                            pedidos_hora_almuerzo = ?,
+                            ventas_domicilio = ?,
+                            ventas_local = ?,
+                            tasa_conversion = ?,
+                            pizzas_pastor = ?,
+                            pizzas_chuleta = ?,
+                            alitas_vendidas = ?,
                             fecha_carga = ?,
                             archivo_origen = ?
                         WHERE fecha = ?
@@ -160,6 +207,15 @@ class SalesDatabase:
                         row['pedidos_creados'],
                         row['tipo_servicio_domicilio'],
                         row['tipo_servicio_llevar'],
+                        ticket_promedio,
+                        pedidos_hora_pico,
+                        pedidos_hora_almuerzo,
+                        ventas_domicilio,
+                        ventas_local,
+                        tasa_conversion,
+                        pizzas_pastor,
+                        pizzas_chuleta,
+                        alitas_vendidas,
                         row['fecha_carga'],
                         row['archivo_origen'],
                         row['fecha']
@@ -173,8 +229,11 @@ class SalesDatabase:
                             pizzas_vendidas, baguettes_vendidas, papas_gajo_vendidas,
                             total_visitas, pedidos_iniciados, pedidos_creados,
                             tipo_servicio_domicilio, tipo_servicio_llevar,
+                            ticket_promedio, pedidos_hora_pico, pedidos_hora_almuerzo,
+                            ventas_domicilio, ventas_local, tasa_conversion,
+                            pizzas_pastor, pizzas_chuleta, alitas_vendidas,
                             fecha_carga, archivo_origen
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         row['fecha'],
                         row['total_ventas_dia'],
@@ -187,6 +246,15 @@ class SalesDatabase:
                         row['pedidos_creados'],
                         row['tipo_servicio_domicilio'],
                         row['tipo_servicio_llevar'],
+                        ticket_promedio,
+                        pedidos_hora_pico,
+                        pedidos_hora_almuerzo,
+                        ventas_domicilio,
+                        ventas_local,
+                        tasa_conversion,
+                        pizzas_pastor,
+                        pizzas_chuleta,
+                        alitas_vendidas,
                         row['fecha_carga'],
                         row['archivo_origen']
                     ))
