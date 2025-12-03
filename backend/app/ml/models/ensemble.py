@@ -44,13 +44,13 @@ class EnsembleModel:
         # Promedios históricos por día de semana
         self.historical_avg = {}
         
-        # Pesos del ensemble (ajustados para mejor captura de estacionalidad)
-        # Historical captura bien la estacionalidad semanal
-        # LightGBM captura tendencias y eventos especiales
+        # Pesos del ensemble - HISTÓRICO COMO BASE PRINCIPAL
+        # El histórico por día de semana es la mejor predicción para este negocio
+        # LightGBM solo ajusta ligeramente por tendencias
         self.weights = {
-            'lgbm': 0.35,
-            'ridge': 0.15,
-            'historical': 0.50  # Mayor peso a histórico por día de semana
+            'lgbm': 0.10,     # Solo ajuste menor
+            'ridge': 0.05,    # Casi nada
+            'historical': 0.85  # Base principal = mediana del día de la semana
         }
         
         self.feature_names = []
