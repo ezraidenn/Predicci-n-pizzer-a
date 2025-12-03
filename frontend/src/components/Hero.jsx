@@ -34,12 +34,12 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-primary to-white bg-clip-text text-transparent">
+          <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-gray-900 via-primary-600 to-gray-900 bg-clip-text text-transparent">
             Predicción de Ventas
             <br />
             Inteligente
           </h1>
-          <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto">
             Analiza tus ventas diarias y predice tu futuro con IA.
             <br />
             Toma decisiones basadas en datos, no en intuición.
@@ -72,8 +72,8 @@ export default function Hero() {
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 mx-auto">
                 <feature.icon className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-gray-400">{feature.description}</p>
+              <h3 className="font-semibold mb-2 text-gray-800">{feature.title}</h3>
+              <p className="text-sm text-gray-600">{feature.description}</p>
             </motion.div>
           ))}
         </div>

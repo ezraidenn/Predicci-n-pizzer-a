@@ -135,8 +135,11 @@ class ETLProcessor:
         # Categorizar productos
         df['Nombre'] = df[nombre_col].astype(str).str.lower()
         
-        # Identificar categorías con patrones más amplios
+        # Identificar categorías
         df['es_pizza'] = df['Nombre'].str.contains('pizza', na=False, case=False)
+        df['es_pizza_pastor'] = df['Nombre'].str.contains('pastor', na=False, case=False)
+        df['es_pizza_chuleta'] = df['Nombre'].str.contains('chuli|chuleta', na=False, case=False)
+        df['es_alitas'] = df['Nombre'].str.contains('alita', na=False, case=False)
         df['es_baguette'] = df['Nombre'].str.contains('baguette', na=False, case=False)
         df['es_papas_gajo'] = df['Nombre'].str.contains('papas gajo|papa gajo|papas a gajo|orden de papas', na=False, case=False)
         
@@ -209,20 +212,23 @@ class ETLProcessor:
         
         pedidos_daily['tipo_servicio_domicilio'] = pedidos_daily.apply(
             lambda x: calc_servicio_pct(x, 'domicilio'), axis=1
-        )
+        ).fillna(0.0)
         pedidos_daily['tipo_servicio_llevar'] = pedidos_daily.apply(
             lambda x: calc_servicio_pct(x, 'llevar'), axis=1
-        )
+        ).fillna(0.0)
         pedidos_daily = pedidos_daily.drop('tipo_servicio_dict', axis=1)
         
         # Agregar detalles por día
         detalles_daily = df_detalles.groupby('fecha').agg({
             'es_pizza': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
+            'es_pizza_pastor': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
+            'es_pizza_chuleta': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
+            'es_alitas': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
             'es_baguette': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
             'es_papas_gajo': lambda x: (x * df_detalles.loc[x.index, 'Cantidad']).sum(),
         }).reset_index()
         
-        detalles_daily.columns = ['fecha', 'pizzas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas']
+        detalles_daily.columns = ['fecha', 'pizzas_vendidas', 'pizzas_pastor', 'pizzas_chuleta', 'alitas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas']
         
         # Agregar visitas por día
         visitas_cols = ['fecha']
@@ -250,13 +256,20 @@ class ETLProcessor:
         df_daily = df_daily.sort_values('fecha').reset_index(drop=True)
         
         # Asegurar tipos correctos
-        int_cols = ['total_pedidos', 'pizzas_vendidas', 'baguettes_vendidas', 
-                   'papas_gajo_vendidas', 'total_visitas', 'pedidos_iniciados', 'pedidos_creados']
+        int_cols = ['total_pedidos', 'pizzas_vendidas', 'pizzas_pastor', 'pizzas_chuleta', 
+                   'alitas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas', 
+                   'total_visitas', 'pedidos_iniciados', 'pedidos_creados']
         for col in int_cols:
-            df_daily[col] = df_daily[col].astype(int)
+            if col in df_daily.columns:
+                df_daily[col] = pd.to_numeric(df_daily[col], errors='coerce').fillna(0).astype(int)
         
         float_cols = ['total_ventas_dia', 'tipo_servicio_domicilio', 'tipo_servicio_llevar']
         for col in float_cols:
-            df_daily[col] = df_daily[col].astype(float)
+            if col in df_daily.columns:
+                df_daily[col] = pd.to_numeric(df_daily[col], errors='coerce').fillna(0.0).astype(float)
+        
+        # Verificación final: reemplazar cualquier NaN, inf o -inf restante
+        df_daily = df_daily.replace([float('inf'), float('-inf')], 0)
+        df_daily = df_daily.fillna(0)
         
         return df_daily

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Upload, Pizza, Loader2, RefreshCw } from 'lucide-react'
+import { Upload, Pizza, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -9,6 +9,7 @@ const API_URL = '/api'
 export default function Navbar({ onDataUpdate, onPredictionsUpdate, onInsightUpdate, setLoading, setHasHistoricalData }) {
   const [uploading, setUploading] = useState(false)
   const [retraining, setRetraining] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [showDropzone, setShowDropzone] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
@@ -77,6 +78,54 @@ export default function Navbar({ onDataUpdate, onPredictionsUpdate, onInsightUpd
     disabled: uploading
   })
 
+  const handleReset = async () => {
+    if (resetting) return
+    
+    const confirmed = window.confirm(
+      '⚠️ ¿BORRAR TODOS LOS DATOS?\n\n' +
+      'Esto eliminará:\n' +
+      '• Todos los datos históricos\n' +
+      '• Todos los archivos procesados\n' +
+      '• Todas las predicciones\n\n' +
+      'Esta acción NO se puede deshacer.\n\n' +
+      '¿Estás SEGURO?'
+    )
+    
+    if (!confirmed) return
+    
+    // Doble confirmación
+    const doubleConfirm = window.confirm(
+      '⚠️⚠️⚠️ ÚLTIMA ADVERTENCIA ⚠️⚠️⚠️\n\n' +
+      'Vas a BORRAR TODO.\n' +
+      'Tendrás que subir todos los archivos de nuevo.\n\n' +
+      '¿Continuar con el borrado?'
+    )
+    
+    if (!doubleConfirm) return
+    
+    setResetting(true)
+    setLoading(true)
+    
+    try {
+      await axios.post(`${API_URL}/reset_database`)
+      
+      // Limpiar estado del frontend
+      onDataUpdate({ stats: {}, data: [], recent_data: [] })
+      onPredictionsUpdate([])
+      onInsightUpdate(null)
+      setHasHistoricalData(false)
+      
+      alert('✅ Base de datos reseteada completamente.\n\nAhora puedes subir tus archivos Excel de nuevo.')
+      
+    } catch (error) {
+      console.error('Error reseteando BD:', error)
+      alert('Error reseteando base de datos: ' + (error.response?.data?.detail || error.message))
+    } finally {
+      setResetting(false)
+      setLoading(false)
+    }
+  }
+
   const handleRetrain = async () => {
     if (retraining) return
     
@@ -140,14 +189,37 @@ export default function Navbar({ onDataUpdate, onPredictionsUpdate, onInsightUpd
 
             {/* Buttons */}
             <div className="flex items-center gap-3">
+              {/* Reset Button */}
+              <button
+                onClick={handleReset}
+                disabled={resetting || uploading || retraining}
+                className="flex items-center gap-2 px-4 py-3 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                style={{backgroundColor: resetting ? '#9ca3af' : '#dc2626'}}
+                onMouseEnter={(e) => !resetting && !uploading && !retraining && (e.currentTarget.style.backgroundColor = '#b91c1c')}
+                onMouseLeave={(e) => !resetting && !uploading && !retraining && (e.currentTarget.style.backgroundColor = '#dc2626')}
+                title="⚠️ BORRAR TODOS LOS DATOS"
+              >
+                {resetting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Borrando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-5 h-5" />
+                    Reset
+                  </>
+                )}
+              </button>
+
               {/* Retrain Button */}
               <button
                 onClick={handleRetrain}
-                disabled={retraining || uploading}
+                disabled={retraining || uploading || resetting}
                 className="flex items-center gap-2 px-4 py-3 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 style={{backgroundColor: retraining ? '#9ca3af' : '#2563eb'}}
-                onMouseEnter={(e) => !retraining && !uploading && (e.currentTarget.style.backgroundColor = '#1d4ed8')}
-                onMouseLeave={(e) => !retraining && !uploading && (e.currentTarget.style.backgroundColor = '#2563eb')}
+                onMouseEnter={(e) => !retraining && !uploading && !resetting && (e.currentTarget.style.backgroundColor = '#1d4ed8')}
+                onMouseLeave={(e) => !retraining && !uploading && !resetting && (e.currentTarget.style.backgroundColor = '#2563eb')}
                 title="Reentrenar modelo con datos actuales"
               >
                 {retraining ? (

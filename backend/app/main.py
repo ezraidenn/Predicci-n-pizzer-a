@@ -101,10 +101,17 @@ async def upload_excel(file: UploadFile = File(...)):
         # Obtener todos los datos históricos
         df_all = db.get_all_data()
         
+        # Asegurar que las columnas nuevas existan (rellenar con 0 si faltan)
+        required_columns = ['pizzas_pastor', 'pizzas_chuleta', 'alitas_vendidas']
+        for col in required_columns:
+            if col not in df_all.columns:
+                logger.warning(f"⚠️ Columna {col} no existe, agregando con valores 0")
+                df_all[col] = 0
+        
         # Guardar dataset completo en parquet (para modelos)
         output_file = DATA_DIR / "ventas_diarias.parquet"
         df_all.to_parquet(output_file, index=False)
-        logger.info(f"Dataset completo guardado: {len(df_all)} registros")
+        logger.info(f"✅ Dataset completo guardado: {len(df_all)} registros con {len(df_all.columns)} columnas")
         
         # Eliminar archivo temporal (con retry por si está bloqueado)
         try:
@@ -162,14 +169,17 @@ async def upload_excel(file: UploadFile = File(...)):
         else:
             confianza = 30
         
+        # Reemplazar NaN antes de calcular stats
+        df_all = df_all.fillna(0)
+        
         stats = {
             "total_dias": db_stats['total_registros'],
             "fecha_inicio": str(db_stats['fecha_inicio']) if db_stats['fecha_inicio'] else None,
             "fecha_fin": str(db_stats['fecha_fin']) if db_stats['fecha_fin'] else None,
             "dias_desde_ultima_actualizacion": dias_desde_ultima_actualizacion,
             "nivel_confianza": confianza,
-            "ventas_totales": db_stats['ventas_totales_historicas'],
-            "promedio_ventas_dia": float(df_all['total_ventas_dia'].mean()) if len(df_all) > 0 else 0,
+            "ventas_totales": float(db_stats['ventas_totales_historicas']) if db_stats['ventas_totales_historicas'] else 0.0,
+            "promedio_ventas_dia": float(df_all['total_ventas_dia'].mean()) if len(df_all) > 0 else 0.0,
             "total_pizzas": int(df_all['pizzas_vendidas'].sum()) if len(df_all) > 0 else 0,
             "total_baguettes": int(df_all['baguettes_vendidas'].sum()) if len(df_all) > 0 else 0,
             "total_papas_gajo": int(df_all['papas_gajo_vendidas'].sum()) if len(df_all) > 0 else 0,
@@ -205,6 +215,64 @@ async def upload_excel(file: UploadFile = File(...)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+@app.post("/reset_database")
+async def reset_database():
+    """
+    RESETEAR COMPLETAMENTE la base de datos
+    ⚠️ BORRA TODOS LOS DATOS
+    """
+    try:
+        logger.warning("🔥 INICIANDO RESET COMPLETO DE BASE DE DATOS")
+        
+        import sqlite3
+        
+        # Conectar a BD
+        conn = sqlite3.connect(db.db_path)
+        cursor = conn.cursor()
+        
+        # Borrar todos los datos
+        cursor.execute('DELETE FROM ventas_diarias')
+        ventas_borradas = cursor.rowcount
+        
+        cursor.execute('DELETE FROM archivos_procesados')
+        archivos_borrados = cursor.rowcount
+        
+        # Resetear IDs
+        cursor.execute('DELETE FROM sqlite_sequence WHERE name="ventas_diarias"')
+        cursor.execute('DELETE FROM sqlite_sequence WHERE name="archivos_procesados"')
+        
+        conn.commit()
+        conn.close()
+        
+        logger.warning(f"✅ Borrados {ventas_borradas} registros de ventas")
+        logger.warning(f"✅ Borrados {archivos_borrados} archivos procesados")
+        
+        # Crear parquet vacío
+        import pandas as pd
+        df_vacio = pd.DataFrame(columns=[
+            'fecha', 'total_ventas_dia', 'total_pedidos',
+            'pizzas_vendidas', 'pizzas_pastor', 'pizzas_chuleta',
+            'alitas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas'
+        ])
+        df_vacio['fecha'] = pd.to_datetime(df_vacio['fecha'])
+        
+        parquet_path = DATA_DIR / "ventas_diarias.parquet"
+        df_vacio.to_parquet(parquet_path, index=False)
+        
+        logger.warning("✅ Parquet reseteado")
+        
+        return {
+            "success": True,
+            "message": "Base de datos reseteada completamente",
+            "ventas_borradas": ventas_borradas,
+            "archivos_borrados": archivos_borrados
+        }
+        
+    except Exception as e:
+        logger.error(f"Error reseteando BD: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/train_model")
@@ -298,6 +366,10 @@ async def get_historical_data():
         
         # Obtener todos los datos
         df_all = db.get_all_data()
+        
+        # Reemplazar NaN, inf, -inf con 0
+        df_all = df_all.replace([float('inf'), float('-inf')], 0)
+        df_all = df_all.fillna(0)
         
         if len(df_all) == 0:
             return JSONResponse(content={

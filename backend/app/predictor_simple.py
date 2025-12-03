@@ -41,6 +41,10 @@ class PredictorSimple:
             df = pd.read_parquet(data_file)
             df['fecha'] = pd.to_datetime(df['fecha'])
             df['dia_semana'] = df['fecha'].dt.dayofweek
+            
+            # Log de columnas disponibles
+            logger.info(f"Columnas cargadas: {df.columns.tolist()}")
+            logger.info(f"Total filas: {len(df)}")
         except Exception as e:
             logger.error(f"Error cargando datos: {e}")
             import traceback
@@ -60,6 +64,18 @@ class PredictorSimple:
         
         for dia_num in range(7):
             try:
+                # MARTES (1) siempre está CERRADO - forzar a 0
+                if dia_num == 1:
+                    logger.warning(f"⚠️ {dias_nombres[dia_num]} - Pizzería CERRADA (día fijo)")
+                    self.promedios[dia_num] = {}
+                    for variable in ['pizzas_vendidas', 'pizzas_pastor', 'pizzas_chuleta', 'alitas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas', 'total_ventas_dia']:
+                        self.promedios[dia_num][variable] = {
+                            'base': 0.0,
+                            'min': 0.0,
+                            'max': 0.0
+                        }
+                    continue
+                
                 df_dia = df[df['dia_semana'] == dia_num]
                 
                 if len(df_dia) > 0:
@@ -88,7 +104,7 @@ class PredictorSimple:
                     # Si no hay datos para este día, asumir que está CERRADO
                     logger.warning(f"⚠️ No hay datos para {dias_nombres[dia_num]} - Pizzería CERRADA")
                     self.promedios[dia_num] = {}
-                    for variable in ['pizzas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas', 'total_ventas_dia']:
+                    for variable in ['pizzas_vendidas', 'pizzas_pastor', 'pizzas_chuleta', 'alitas_vendidas', 'baguettes_vendidas', 'papas_gajo_vendidas', 'total_ventas_dia']:
                         self.promedios[dia_num][variable] = {
                             'base': 0.0,
                             'min': 0.0,
@@ -122,7 +138,13 @@ class PredictorSimple:
         # Cargar datos para contexto
         df = pd.read_parquet(data_file)
         df['fecha'] = pd.to_datetime(df['fecha'])
-        last_date = df['fecha'].max()
+        
+        # Usar la fecha actual como punto de partida (no la última fecha de datos)
+        from datetime import datetime
+        today = datetime.now().date()
+        last_date = pd.Timestamp(today)
+        
+        logger.info(f"Prediciendo desde: {last_date.date()}")
         
         predictions = []
         
@@ -135,6 +157,11 @@ class PredictorSimple:
             pred_date = last_date + timedelta(days=day)
             dia_semana = pred_date.dayofweek
             dia_nombre = dias_nombres[dia_semana]
+            
+            # SALTAR MARTES - Pizzería cerrada
+            if dia_semana == 1:
+                logger.info(f"{pred_date.date()} ({dia_nombre}): CERRADO - Saltando predicción")
+                continue
             
             # Obtener predicción base del día
             pizzas_base = float(self.promedios[dia_semana]['pizzas_vendidas']['base'])

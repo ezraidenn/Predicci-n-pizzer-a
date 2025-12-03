@@ -26,16 +26,23 @@ export default function Dashboard({ data, predictions, insight, loading }) {
   const totalBaguettes = stats.total_baguettes || 0
   const totalPapas = stats.total_papas_gajo || 0
 
-  // Predicciones: primera es de AYER, segunda es de HOY
-  const yesterdayPrediction = predictions && predictions.length > 0 ? predictions[0] : null
-  const todayPrediction = predictions && predictions.length > 1 ? predictions[1] : null
+  // Predicciones: primera es del día siguiente al último dato
+  const nextDayPrediction = predictions && predictions.length > 0 ? predictions[0] : null
   
-  // Obtener ventas de ayer (último día en los datos)
-  const yesterdayData = recentData && recentData.length > 0 ? recentData[recentData.length - 1] : null
-  const yesterdayVentas = yesterdayData?.total_ventas_dia || promedioVentas
-  const yesterdayPizzas = yesterdayData?.pizzas_vendidas || (totalPizzas / stats.total_dias)
-  const yesterdayBaguettes = yesterdayData?.baguettes_vendidas || (totalBaguettes / stats.total_dias)
-  const yesterdayPapas = yesterdayData?.papas_gajo_vendidas || (totalPapas / stats.total_dias)
+  // Obtener ventas del último día disponible
+  const lastDayData = recentData && recentData.length > 0 ? recentData[recentData.length - 1] : null
+  const lastDayVentas = lastDayData?.total_ventas_dia || promedioVentas
+  const lastDayPizzas = lastDayData?.pizzas_vendidas || (totalPizzas / stats.total_dias)
+  const lastDayBaguettes = lastDayData?.baguettes_vendidas || (totalBaguettes / stats.total_dias)
+  const lastDayPapas = lastDayData?.papas_gajo_vendidas || (totalPapas / stats.total_dias)
+  
+  // Formatear fecha del último dato
+  const lastDataDateStr = stats.fecha_fin ? new Date(stats.fecha_fin).toLocaleDateString('es-MX', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  }) : ''
   
   // Determinar fechas
   const lastDataDate = stats.fecha_fin ? new Date(stats.fecha_fin) : null
@@ -86,48 +93,48 @@ export default function Dashboard({ data, predictions, insight, loading }) {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
       >
         <KPICard
-          title="Ventas de Ayer"
-          value={yesterdayVentas}
+          title={`Ventas (${stats.fecha_fin})`}
+          value={lastDayVentas}
           format="currency"
           icon={DollarSign}
           color="green"
           subtitle={`Promedio histórico: ${formatCurrency(promedioVentas)}/día`}
-          prediction={yesterdayPrediction?.total_ventas_dia}
+          prediction={nextDayPrediction?.total_ventas_dia}
           avgDaily={promedioVentas}
-          predictionLabel={`Predicción de ayer (${stats.fecha_fin})`}
+          predictionLabel="Predicción próximo día"
         />
         <KPICard
-          title="Pizzas de Ayer"
-          value={yesterdayPizzas}
+          title={`Pizzas (${stats.fecha_fin})`}
+          value={lastDayPizzas}
           format="number"
           icon={Pizza}
           color="blue"
           subtitle={`Promedio histórico: ${formatNumber((totalPizzas / stats.total_dias).toFixed(1))}/día`}
-          prediction={yesterdayPrediction?.pizzas_vendidas}
+          prediction={nextDayPrediction?.pizzas_vendidas}
           avgDaily={totalPizzas / stats.total_dias}
-          predictionLabel={`Predicción de ayer (${stats.fecha_fin})`}
+          predictionLabel="Predicción próximo día"
         />
         <KPICard
-          title="Baguettes de Ayer"
-          value={yesterdayBaguettes}
+          title={`Baguettes (${stats.fecha_fin})`}
+          value={lastDayBaguettes}
           format="number"
           icon={Croissant}
           color="amber"
           subtitle={`Promedio histórico: ${formatNumber((totalBaguettes / stats.total_dias).toFixed(1))}/día`}
-          prediction={yesterdayPrediction?.baguettes_vendidas}
+          prediction={nextDayPrediction?.baguettes_vendidas}
           avgDaily={totalBaguettes / stats.total_dias}
-          predictionLabel={`Predicción de ayer (${stats.fecha_fin})`}
+          predictionLabel="Predicción próximo día"
         />
         <KPICard
-          title="Papas de Ayer"
-          value={yesterdayPapas}
+          title={`Papas (${stats.fecha_fin})`}
+          value={lastDayPapas}
           format="number"
           icon={Beef}
           color="orange"
           subtitle={`Promedio histórico: ${formatNumber((totalPapas / stats.total_dias).toFixed(1))}/día`}
-          prediction={yesterdayPrediction?.papas_gajo_vendidas}
+          prediction={nextDayPrediction?.papas_gajo_vendidas}
           avgDaily={totalPapas / stats.total_dias}
-          predictionLabel={`Predicción de ayer (${stats.fecha_fin})`}
+          predictionLabel="Predicción próximo día"
         />
       </motion.div>
 

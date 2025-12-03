@@ -253,7 +253,18 @@ class SalesDatabase:
             DataFrame con datos filtrados
         """
         with sqlite3.connect(self.db_path) as conn:
-            query = "SELECT * FROM ventas_diarias WHERE 1=1"
+            # Especificar columnas explícitamente para asegurar que se incluyan las nuevas
+            query = """
+                SELECT 
+                    fecha, total_ventas_dia, total_pedidos,
+                    pizzas_vendidas, pizzas_pastor, pizzas_chuleta,
+                    alitas_vendidas, baguettes_vendidas, papas_gajo_vendidas,
+                    total_visitas, pedidos_iniciados, pedidos_creados,
+                    tipo_servicio_domicilio, tipo_servicio_llevar,
+                    fecha_carga, archivo_origen
+                FROM ventas_diarias 
+                WHERE 1=1
+            """
             params = []
             
             if fecha_inicio:
