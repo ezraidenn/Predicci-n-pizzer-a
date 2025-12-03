@@ -200,7 +200,7 @@ async def upload_excel(file: UploadFile = File(...)):
                 record['fecha'] = record['fecha'].strftime('%Y-%m-%d')
         
         # === GUARDAR CLIENTES ===
-        clientes_data = etl.get_clientes_data()
+        clientes_data = etl_processor.get_clientes_data()
         clientes_nuevos = 0
         clientes_actualizados = 0
         
