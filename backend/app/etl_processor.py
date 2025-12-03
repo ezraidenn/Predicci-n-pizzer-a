@@ -59,9 +59,64 @@ class ETLProcessor:
         # Combinar datos por fecha
         df_daily = self._aggregate_daily(df_pedidos_clean, df_detalles_clean, df_visitas_clean)
         
+        # Extraer datos de clientes
+        df_clientes = self._extract_clientes(df_pedidos)
+        
         logger.info(f"Dataset diario generado: {len(df_daily)} días")
+        logger.info(f"Clientes extraídos: {len(df_clientes)} registros")
+        
+        # Guardar clientes como atributo para acceso posterior
+        self.clientes_data = df_clientes
         
         return df_daily
+    
+    def _extract_clientes(self, df_pedidos: pd.DataFrame) -> pd.DataFrame:
+        """
+        Extrae datos de clientes de la hoja de Pedidos
+        
+        Returns:
+            DataFrame con datos de clientes para insertar en BD
+        """
+        cliente_cols = ['Cliente', 'Teléfono', 'Dirección', 'Total', 'Tipo de servicio', 'Fecha de creación']
+        
+        # Verificar que existan las columnas necesarias
+        available_cols = [col for col in cliente_cols if col in df_pedidos.columns]
+        if 'Teléfono' not in available_cols:
+            logger.warning("No se encontró columna 'Teléfono' para extraer clientes")
+            return pd.DataFrame()
+        
+        df_clientes = df_pedidos[available_cols].copy()
+        
+        # Limpiar datos
+        df_clientes = df_clientes.rename(columns={
+            'Cliente': 'nombre',
+            'Teléfono': 'telefono',
+            'Dirección': 'direccion',
+            'Total': 'total_pedido',
+            'Tipo de servicio': 'tipo_servicio',
+            'Fecha de creación': 'fecha_pedido'
+        })
+        
+        # Convertir fecha
+        if 'fecha_pedido' in df_clientes.columns:
+            df_clientes['fecha_pedido'] = pd.to_datetime(
+                df_clientes['fecha_pedido'], 
+                format='%d/%m/%Y | %H:%M', 
+                errors='coerce'
+            )
+            df_clientes['fecha_pedido'] = df_clientes['fecha_pedido'].dt.date
+        
+        # Filtrar registros sin teléfono válido
+        df_clientes = df_clientes[df_clientes['telefono'].notna()]
+        df_clientes = df_clientes[df_clientes['telefono'].astype(str).str.len() >= 5]
+        
+        logger.info(f"✅ Extraídos {len(df_clientes)} registros de clientes")
+        
+        return df_clientes
+    
+    def get_clientes_data(self) -> pd.DataFrame:
+        """Retorna los datos de clientes extraídos del último procesamiento"""
+        return getattr(self, 'clientes_data', pd.DataFrame())
     
     def _process_pedidos(self, df: pd.DataFrame) -> pd.DataFrame:
         """Procesa hoja de Pedidos"""

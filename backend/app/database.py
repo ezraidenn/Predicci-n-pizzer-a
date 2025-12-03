@@ -98,8 +98,43 @@ class SalesDatabase:
                 )
             """)
             
+            # === TABLA DE CLIENTES ===
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS clientes (
+                    telefono TEXT PRIMARY KEY,
+                    nombre TEXT,
+                    direccion_actual TEXT,
+                    todas_direcciones TEXT,
+                    total_pedidos INTEGER DEFAULT 0,
+                    total_gastado REAL DEFAULT 0,
+                    ticket_promedio REAL DEFAULT 0,
+                    tipo_servicio_preferido TEXT,
+                    primer_pedido DATE,
+                    ultimo_pedido DATE,
+                    frecuencia_dias REAL DEFAULT 0,
+                    es_cliente_frecuente INTEGER DEFAULT 0,
+                    notas TEXT,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Tabla de historial de pedidos por cliente
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS historial_cliente (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telefono TEXT,
+                    fecha_pedido DATE,
+                    total_pedido REAL,
+                    tipo_servicio TEXT,
+                    direccion TEXT,
+                    productos TEXT,
+                    FOREIGN KEY (telefono) REFERENCES clientes(telefono)
+                )
+            """)
+            
             conn.commit()
-            logger.info("Base de datos inicializada correctamente")
+            logger.info("Base de datos inicializada correctamente (incluyendo tabla clientes)")
     
     def insert_daily_data(self, df: pd.DataFrame, archivo_origen: str) -> Dict[str, Any]:
         """
@@ -410,4 +445,201 @@ class SalesDatabase:
                 "SELECT * FROM dias_festivos ORDER BY fecha",
                 conn,
                 parse_dates=['fecha']
+            )
+    
+    # ============ GESTIÓN DE CLIENTES ============
+    
+    def upsert_cliente(self, telefono: str, nombre: str, direccion: str, 
+                       fecha_pedido: date, total_pedido: float, tipo_servicio: str,
+                       productos: str = None) -> Dict[str, Any]:
+        """
+        Inserta o actualiza un cliente y registra su pedido
+        
+        Args:
+            telefono: Número de teléfono (identificador único)
+            nombre: Nombre del cliente
+            direccion: Dirección de entrega
+            fecha_pedido: Fecha del pedido
+            total_pedido: Total del pedido en $
+            tipo_servicio: 'domicilio' o 'para llevar'
+            productos: JSON con productos del pedido
+        """
+        if not telefono or telefono == 'nan' or len(str(telefono).strip()) < 5:
+            return {"status": "skipped", "reason": "teléfono inválido"}
+        
+        telefono = str(telefono).strip()
+        nombre = str(nombre).strip() if nombre and nombre != 'nan' else 'Sin nombre'
+        direccion = str(direccion).strip() if direccion and direccion != 'nan' else None
+        
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Verificar si el cliente existe
+            cursor.execute("SELECT * FROM clientes WHERE telefono = ?", (telefono,))
+            cliente_existente = cursor.fetchone()
+            
+            if cliente_existente:
+                # Actualizar cliente existente
+                cursor.execute("SELECT total_pedidos, total_gastado, todas_direcciones, primer_pedido FROM clientes WHERE telefono = ?", (telefono,))
+                total_pedidos, total_gastado, todas_dirs, primer_pedido = cursor.fetchone()
+                
+                # Actualizar direcciones (mantener historial)
+                direcciones_lista = todas_dirs.split('|||') if todas_dirs else []
+                if direccion and direccion not in direcciones_lista:
+                    direcciones_lista.append(direccion)
+                todas_direcciones = '|||'.join(direcciones_lista[-5:])  # Últimas 5 direcciones
+                
+                # Calcular nueva frecuencia
+                nuevo_total_pedidos = total_pedidos + 1
+                nuevo_total_gastado = total_gastado + total_pedido
+                nuevo_ticket_promedio = nuevo_total_gastado / nuevo_total_pedidos
+                
+                # Calcular frecuencia (días entre pedidos)
+                if primer_pedido:
+                    dias_cliente = (fecha_pedido - pd.to_datetime(primer_pedido).date()).days
+                    frecuencia = dias_cliente / nuevo_total_pedidos if nuevo_total_pedidos > 1 else 0
+                else:
+                    frecuencia = 0
+                
+                # Es cliente frecuente si tiene más de 3 pedidos
+                es_frecuente = 1 if nuevo_total_pedidos >= 3 else 0
+                
+                cursor.execute("""
+                    UPDATE clientes SET
+                        nombre = COALESCE(?, nombre),
+                        direccion_actual = COALESCE(?, direccion_actual),
+                        todas_direcciones = ?,
+                        total_pedidos = ?,
+                        total_gastado = ?,
+                        ticket_promedio = ?,
+                        ultimo_pedido = ?,
+                        frecuencia_dias = ?,
+                        es_cliente_frecuente = ?,
+                        fecha_actualizacion = CURRENT_TIMESTAMP
+                    WHERE telefono = ?
+                """, (
+                    nombre if nombre != 'Sin nombre' else None,
+                    direccion,
+                    todas_direcciones,
+                    nuevo_total_pedidos,
+                    nuevo_total_gastado,
+                    nuevo_ticket_promedio,
+                    str(fecha_pedido),
+                    frecuencia,
+                    es_frecuente,
+                    telefono
+                ))
+                status = "updated"
+            else:
+                # Insertar nuevo cliente
+                cursor.execute("""
+                    INSERT INTO clientes (
+                        telefono, nombre, direccion_actual, todas_direcciones,
+                        total_pedidos, total_gastado, ticket_promedio,
+                        tipo_servicio_preferido, primer_pedido, ultimo_pedido,
+                        frecuencia_dias, es_cliente_frecuente
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    telefono, nombre, direccion, direccion or '',
+                    1, total_pedido, total_pedido,
+                    tipo_servicio, str(fecha_pedido), str(fecha_pedido),
+                    0, 0
+                ))
+                status = "created"
+            
+            # Registrar en historial
+            cursor.execute("""
+                INSERT INTO historial_cliente (
+                    telefono, fecha_pedido, total_pedido, tipo_servicio, direccion, productos
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (telefono, str(fecha_pedido), total_pedido, tipo_servicio, direccion, productos))
+            
+            conn.commit()
+            
+            return {"status": status, "telefono": telefono}
+    
+    def get_clientes(self, limit: int = 100, order_by: str = "ultimo_pedido DESC") -> pd.DataFrame:
+        """Obtiene lista de clientes"""
+        with sqlite3.connect(self.db_path) as conn:
+            return pd.read_sql_query(
+                f"""SELECT telefono, nombre, direccion_actual, total_pedidos, 
+                    total_gastado, ticket_promedio, primer_pedido, ultimo_pedido,
+                    es_cliente_frecuente, frecuencia_dias
+                    FROM clientes ORDER BY {order_by} LIMIT ?""",
+                conn, params=(limit,)
+            )
+    
+    def get_cliente_detalle(self, telefono: str) -> Dict[str, Any]:
+        """Obtiene detalle completo de un cliente"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT * FROM clientes WHERE telefono = ?", (telefono,))
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                return None
+            
+            columns = [desc[0] for desc in cursor.description]
+            cliente_dict = dict(zip(columns, cliente))
+            
+            # Obtener historial de pedidos
+            historial = pd.read_sql_query(
+                "SELECT * FROM historial_cliente WHERE telefono = ? ORDER BY fecha_pedido DESC",
+                conn, params=(telefono,)
+            )
+            cliente_dict['historial'] = historial.to_dict('records')
+            
+            return cliente_dict
+    
+    def get_clientes_stats(self) -> Dict[str, Any]:
+        """Obtiene estadísticas de clientes"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT COUNT(*) FROM clientes")
+            total_clientes = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM clientes WHERE es_cliente_frecuente = 1")
+            clientes_frecuentes = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT AVG(total_gastado) FROM clientes")
+            gasto_promedio = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT AVG(ticket_promedio) FROM clientes")
+            ticket_promedio = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT COUNT(*) FROM clientes WHERE total_pedidos = 1")
+            clientes_unicos = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM clientes WHERE total_pedidos >= 5")
+            clientes_muy_frecuentes = cursor.fetchone()[0]
+            
+            # Top 10 mejores clientes
+            top_clientes = pd.read_sql_query(
+                """SELECT nombre, telefono, total_pedidos, total_gastado, ticket_promedio
+                   FROM clientes ORDER BY total_gastado DESC LIMIT 10""",
+                conn
+            )
+            
+            return {
+                "total_clientes": total_clientes,
+                "clientes_frecuentes": clientes_frecuentes,
+                "clientes_unicos": clientes_unicos,
+                "clientes_muy_frecuentes": clientes_muy_frecuentes,
+                "gasto_promedio_por_cliente": round(gasto_promedio, 2),
+                "ticket_promedio_global": round(ticket_promedio, 2),
+                "tasa_retencion": round((total_clientes - clientes_unicos) / total_clientes * 100, 1) if total_clientes > 0 else 0,
+                "top_clientes": top_clientes.to_dict('records')
+            }
+    
+    def buscar_cliente(self, query: str) -> pd.DataFrame:
+        """Busca clientes por nombre o teléfono"""
+        with sqlite3.connect(self.db_path) as conn:
+            return pd.read_sql_query(
+                """SELECT telefono, nombre, direccion_actual, total_pedidos, total_gastado
+                   FROM clientes 
+                   WHERE nombre LIKE ? OR telefono LIKE ?
+                   ORDER BY total_gastado DESC LIMIT 20""",
+                conn, params=(f'%{query}%', f'%{query}%')
             )

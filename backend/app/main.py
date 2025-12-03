@@ -199,6 +199,33 @@ async def upload_excel(file: UploadFile = File(...)):
             else:
                 record['fecha'] = record['fecha'].strftime('%Y-%m-%d')
         
+        # === GUARDAR CLIENTES ===
+        clientes_data = etl.get_clientes_data()
+        clientes_nuevos = 0
+        clientes_actualizados = 0
+        
+        if len(clientes_data) > 0:
+            for _, cliente in clientes_data.iterrows():
+                try:
+                    result = db.upsert_cliente(
+                        telefono=str(cliente.get('telefono', '')),
+                        nombre=str(cliente.get('nombre', '')),
+                        direccion=str(cliente.get('direccion', '')) if cliente.get('direccion') else None,
+                        fecha_pedido=cliente.get('fecha_pedido'),
+                        total_pedido=float(cliente.get('total_pedido', 0)),
+                        tipo_servicio=str(cliente.get('tipo_servicio', ''))
+                    )
+                    if result.get('status') == 'created':
+                        clientes_nuevos += 1
+                    elif result.get('status') == 'updated':
+                        clientes_actualizados += 1
+                except Exception as e:
+                    logger.warning(f"Error guardando cliente: {e}")
+            
+            logger.info(f"👥 Clientes: {clientes_nuevos} nuevos, {clientes_actualizados} actualizados")
+            stats['clientes_nuevos'] = clientes_nuevos
+            stats['clientes_actualizados'] = clientes_actualizados
+        
         return JSONResponse(content={
             "success": True,
             "message": mensaje,
@@ -242,15 +269,24 @@ async def reset_database():
         cursor.execute('DELETE FROM archivos_procesados')
         archivos_borrados = cursor.rowcount
         
+        # Borrar clientes e historial
+        cursor.execute('DELETE FROM historial_cliente')
+        historial_borrado = cursor.rowcount
+        
+        cursor.execute('DELETE FROM clientes')
+        clientes_borrados = cursor.rowcount
+        
         # Resetear IDs
         cursor.execute('DELETE FROM sqlite_sequence WHERE name="ventas_diarias"')
         cursor.execute('DELETE FROM sqlite_sequence WHERE name="archivos_procesados"')
+        cursor.execute('DELETE FROM sqlite_sequence WHERE name="historial_cliente"')
         
         conn.commit()
         conn.close()
         
         logger.warning(f"✅ Borrados {ventas_borradas} registros de ventas")
         logger.warning(f"✅ Borrados {archivos_borrados} archivos procesados")
+        logger.warning(f"✅ Borrados {clientes_borrados} clientes y {historial_borrado} registros de historial")
         
         # Crear parquet vacío
         import pandas as pd
@@ -698,6 +734,168 @@ async def get_advanced_predictions(days: int = 7):
         
     except Exception as e:
         logger.error(f"Error en predicciones avanzadas: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ ENDPOINTS DE CLIENTES ============
+
+@app.get("/clientes")
+async def get_clientes(limit: int = 100, order_by: str = "ultimo_pedido DESC"):
+    """
+    Obtiene lista de clientes
+    
+    Args:
+        limit: Número máximo de clientes a retornar
+        order_by: Ordenamiento (ultimo_pedido DESC, total_gastado DESC, etc.)
+    """
+    try:
+        df = db.get_clientes(limit=limit, order_by=order_by)
+        return JSONResponse(content={
+            "success": True,
+            "total": len(df),
+            "clientes": df.to_dict('records')
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo clientes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/clientes/stats")
+async def get_clientes_stats():
+    """
+    Obtiene estadísticas de clientes
+    - Total clientes
+    - Clientes frecuentes
+    - Tasa de retención
+    - Top 10 mejores clientes
+    """
+    try:
+        stats = db.get_clientes_stats()
+        return JSONResponse(content={
+            "success": True,
+            "stats": stats
+        })
+    except Exception as e:
+        logger.error(f"Error obteniendo stats de clientes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/clientes/{telefono}")
+async def get_cliente_detalle(telefono: str):
+    """
+    Obtiene detalle completo de un cliente
+    - Información personal
+    - Historial de direcciones
+    - Historial de pedidos
+    """
+    try:
+        cliente = db.get_cliente_detalle(telefono)
+        if not cliente:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        
+        return JSONResponse(content={
+            "success": True,
+            "cliente": cliente
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo cliente {telefono}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/clientes/buscar/{query}")
+async def buscar_cliente(query: str):
+    """
+    Busca clientes por nombre o teléfono
+    """
+    try:
+        df = db.buscar_cliente(query)
+        return JSONResponse(content={
+            "success": True,
+            "resultados": df.to_dict('records')
+        })
+    except Exception as e:
+        logger.error(f"Error buscando cliente: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/reportes/resumen")
+async def get_reporte_resumen():
+    """
+    Reporte ejecutivo con métricas clave
+    """
+    try:
+        # Estadísticas de ventas
+        ventas_stats = db.get_statistics()
+        
+        # Estadísticas de clientes
+        clientes_stats = db.get_clientes_stats()
+        
+        # Datos históricos para análisis
+        df = db.get_all_data()
+        
+        if len(df) == 0:
+            return JSONResponse(content={"success": True, "message": "No hay datos"})
+        
+        df['fecha'] = pd.to_datetime(df['fecha'])
+        df['dia_semana'] = df['fecha'].dt.dayofweek
+        df['mes'] = df['fecha'].dt.month
+        
+        # Análisis por día de semana
+        dias_nombres = {0:'Lunes', 1:'Martes', 2:'Miércoles', 3:'Jueves', 
+                       4:'Viernes', 5:'Sábado', 6:'Domingo'}
+        
+        ventas_por_dia = df.groupby('dia_semana').agg({
+            'total_ventas_dia': ['mean', 'sum'],
+            'pizzas_vendidas': 'mean',
+            'total_pedidos': 'sum'
+        }).round(2)
+        
+        dias_analisis = []
+        for dia in range(7):
+            if dia in ventas_por_dia.index:
+                dias_analisis.append({
+                    "dia": dias_nombres[dia],
+                    "ventas_promedio": float(ventas_por_dia.loc[dia, ('total_ventas_dia', 'mean')]),
+                    "ventas_total": float(ventas_por_dia.loc[dia, ('total_ventas_dia', 'sum')]),
+                    "pizzas_promedio": float(ventas_por_dia.loc[dia, ('pizzas_vendidas', 'mean')]),
+                    "total_pedidos": int(ventas_por_dia.loc[dia, ('total_pedidos', 'sum')])
+                })
+        
+        # Mejor y peor día
+        mejor_dia = max(dias_analisis, key=lambda x: x['ventas_promedio'])
+        peor_dia = min([d for d in dias_analisis if d['ventas_promedio'] > 0], 
+                      key=lambda x: x['ventas_promedio'])
+        
+        # Tendencia mensual
+        ventas_mensuales = df.groupby(df['fecha'].dt.to_period('M'))['total_ventas_dia'].sum()
+        tendencia = "📈 Creciendo" if len(ventas_mensuales) > 1 and ventas_mensuales.iloc[-1] > ventas_mensuales.iloc[-2] else "📉 Decreciendo"
+        
+        return JSONResponse(content={
+            "success": True,
+            "reporte": {
+                "periodo": {
+                    "inicio": str(ventas_stats['fecha_inicio']),
+                    "fin": str(ventas_stats['fecha_fin']),
+                    "total_dias": ventas_stats['total_registros']
+                },
+                "ventas": {
+                    "total_historico": float(ventas_stats['ventas_totales_historicas']),
+                    "promedio_diario": float(df['total_ventas_dia'].mean()),
+                    "mejor_dia_semana": mejor_dia,
+                    "peor_dia_semana": peor_dia,
+                    "tendencia": tendencia
+                },
+                "clientes": clientes_stats,
+                "analisis_semanal": dias_analisis
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generando reporte: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
