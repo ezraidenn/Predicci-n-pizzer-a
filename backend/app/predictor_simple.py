@@ -139,12 +139,12 @@ class PredictorSimple:
         df = pd.read_parquet(data_file)
         df['fecha'] = pd.to_datetime(df['fecha'])
         
-        # Usar la fecha actual como punto de partida (no la última fecha de datos)
+        # Usar la fecha actual como punto de partida (incluir HOY)
         from datetime import datetime
         today = datetime.now().date()
         last_date = pd.Timestamp(today)
         
-        logger.info(f"Prediciendo desde: {last_date.date()}")
+        logger.info(f"Prediciendo desde HOY: {last_date.date()}")
         
         predictions = []
         
@@ -153,7 +153,8 @@ class PredictorSimple:
             4: 'Viernes', 5: 'Sábado', 6: 'Domingo'
         }
         
-        for day in range(1, days + 1):
+        # Empezar desde day=0 (HOY) hasta days-1 días en el futuro
+        for day in range(0, days):
             pred_date = last_date + timedelta(days=day)
             dia_semana = pred_date.dayofweek
             dia_nombre = dias_nombres[dia_semana]
