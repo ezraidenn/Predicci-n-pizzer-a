@@ -1,15 +1,13 @@
-# 🍕 Pizzería MAX - Sistema de Predicción de Ventas con IA
+# 🍕 Pizzería MAX AI - Sistema de Predicción Inteligente
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.9+-green.svg)
 ![React](https://img.shields.io/badge/react-18.2-61dafb.svg)
 ![License](https://img.shields.io/badge/license-MIT-orange.svg)
 
-**Plataforma inteligente de predicción de ventas con Machine Learning y análisis GPT**
-
-[Características](#-características) • [Instalación](#-instalación-rápida) • [Uso](#-uso) • [Arquitectura](#-arquitectura) • [Screenshots](#-screenshots)
+**Sistema completo de predicción de ventas, gestión de clientes y reportes ejecutivos**
 
 </div>
 
@@ -17,36 +15,50 @@
 
 ## 🎯 Descripción
 
-Sistema completo de predicción de ventas que permite:
+Sistema integral para pizzerías que incluye:
 
-- 📤 **Subir archivos Excel** de ventas diarias
-- 🧠 **Entrenar modelos ML** automáticamente (XGBoost/GradientBoosting)
-- 📊 **Visualizar datos** con gráficos interactivos y animados
-- 🤖 **Predicciones precisas** para los próximos 7 días
-- 💡 **Insights con GPT-4** en lenguaje natural
-- 🎨 **Interfaz Tesla-style** moderna y elegante
+- 📤 **Carga de datos** desde archivos Excel de ventas
+- 🧠 **Predicciones inteligentes** con ajustes por quincena, festivos y tendencias
+- 👥 **Gestión de clientes** con historial y métricas de fidelización
+- 📊 **Reportes ejecutivos** con insights y recomendaciones
+- 📈 **Dashboard interactivo** con KPIs en tiempo real
+- 🎨 **Interfaz moderna** con diseño responsive
 
 ---
 
 ## ✨ Características
 
-### Backend (FastAPI + Python)
-- ✅ Procesamiento ETL de archivos Excel
-- ✅ Modelos de Machine Learning (XGBoost, Scikit-learn)
-- ✅ Predicción de ventas, pizzas, baguettes y papas gajo
-- ✅ Features: medias móviles, lags, one-hot encoding
-- ✅ Validación cruzada y métricas de rendimiento
-- ✅ Integración con OpenAI GPT-4 para insights
-- ✅ API RESTful documentada (Swagger/ReDoc)
+### 📊 Dashboard
+- KPIs animados (ventas, pizzas, baguettes, papas)
+- Predicciones para los próximos 7 días
+- Rangos pesimista/optimista
+- Detección de eventos especiales (quincenas, festivos)
 
-### Frontend (React + TailwindCSS)
-- ✅ Diseño futurista tipo Tesla
-- ✅ Drag & Drop para subir archivos
-- ✅ KPI cards animados con CountUp
-- ✅ Gráficos interactivos (Recharts)
-- ✅ Efectos glass morphism y glow
-- ✅ Animaciones fluidas (Framer Motion)
-- ✅ Responsive design (mobile, tablet, desktop)
+### 👥 Gestión de Clientes
+- Base de datos de clientes extraída automáticamente
+- Métricas: total gastado, ticket promedio, frecuencia
+- Búsqueda por nombre o teléfono
+- Historial de pedidos por cliente
+
+### 📈 Reportes Ejecutivos
+- Top 10 clientes por dinero gastado
+- Top 10 clientes por cantidad de pedidos
+- Análisis de rendimiento por día de semana
+- Insights y recomendaciones automáticas
+- Resumen ejecutivo con conclusiones
+
+### 🔧 Backend (FastAPI + Python)
+- Procesamiento ETL de archivos Excel
+- Modelo de predicción con medianas históricas
+- Ajustes por quincena (+15-20%) y festivos
+- Factor de tendencia reciente
+- API RESTful documentada
+
+### 🎨 Frontend (React + TailwindCSS)
+- Diseño moderno y profesional
+- Animaciones fluidas (Framer Motion)
+- Gráficos interactivos (Recharts)
+- Responsive (mobile, tablet, desktop)
 
 ---
 
@@ -176,68 +188,63 @@ npm run dev
 Proyecto prediccion MAX/
 ├── backend/
 │   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # FastAPI app
+│   │   ├── main.py              # FastAPI app principal
 │   │   ├── etl_processor.py     # Procesamiento Excel
-│   │   ├── predictor.py         # Modelos ML
-│   │   └── gpt_insights.py      # Generador insights
-│   ├── data/                    # Datos procesados (auto-generado)
-│   ├── models/                  # Modelos entrenados (auto-generado)
-│   ├── requirements.txt
-│   ├── .env.example
-│   └── README.md
+│   │   ├── predictor_simple.py  # Predictor con medianas
+│   │   ├── database.py          # Gestión SQLite (clientes)
+│   │   ├── calendario_comercial.py  # Quincenas y festivos
+│   │   └── gpt_insights.py      # Insights con GPT (opcional)
+│   ├── data/
+│   │   ├── ventas_diarias.parquet
+│   │   └── pizzeria_max.db      # Base de datos clientes
+│   ├── models/
+│   │   └── promedios_simple.pkl # Modelo de predicción
+│   └── requirements.txt
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── Hero.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── KPICard.jsx
-│   │   │   ├── SalesChart.jsx
-│   │   │   ├── ProductsChart.jsx
-│   │   │   └── InsightBox.jsx
+│   │   │   ├── Dashboard.jsx    # Panel principal
+│   │   │   ├── Analytics.jsx    # Análisis histórico
+│   │   │   ├── Clientes.jsx     # Gestión de clientes
+│   │   │   ├── Reportes.jsx     # Reportes ejecutivos
+│   │   │   └── KPICard.jsx      # Tarjetas de métricas
 │   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
+│   │   └── main.jsx
 │   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── README.md
+│   └── vite.config.js
 │
-└── README.md                    # Este archivo
+├── scripts/
+│   ├── install.bat              # Instalación automática
+│   └── start-all.bat            # Iniciar todo
+│
+└── README.md
 ```
 
 ---
 
-## 🧠 Modelos de Machine Learning
+## 🧠 Sistema de Predicción
 
 ### Variables Predichas
 - **Total ventas diarias** ($)
-- **Pizzas vendidas** (unidades)
-- **Baguettes vendidos** (unidades)
-- **Papas gajo vendidas** (unidades)
+- **Pizzas vendidas** (totales, pastor, chuleta)
+- **Baguettes vendidos**
+- **Papas gajo vendidas**
+- **Alitas vendidas**
 
-### Features Utilizadas
-- Día de la semana (one-hot encoded)
-- Día del mes, mes
-- Es fin de semana (binario)
-- Total visitas, pedidos iniciados, pedidos creados
-- Tipo de servicio (% domicilio, % llevar)
-- Medias móviles de 3 y 7 días
-- Desviación estándar de 7 días
-- Lags de 1 y 7 días
-- Tasa de conversión
+### Metodología
+El sistema usa **medianas históricas por día de semana** ajustadas por:
 
-### Algoritmo
-- **XGBoost** (si está instalado)
-- **GradientBoosting** (fallback)
+1. **Quincenas** (+15-20% en días de pago: 1, 15, 30 del mes)
+2. **Festivos mexicanos** (Día de las Madres, Navidad, etc.)
+3. **Tendencia reciente** (compara últimas 4 semanas vs anteriores)
+4. **Variabilidad natural** (±5% por posición en el mes)
 
-### Métricas
-- MAE (Mean Absolute Error)
-- RMSE (Root Mean Squared Error)
-- R² Score
-- Cross-validation MAE
+### Rangos de Predicción
+Cada predicción incluye:
+- **Valor base**: Mediana histórica ajustada
+- **Rango pesimista**: Percentil 25
+- **Rango optimista**: Percentil 75
 
 ---
 
@@ -279,64 +286,48 @@ El archivo Excel debe contener 3 hojas:
 
 ---
 
-## 🎨 Paleta de Colores
-
-- **Primary (Cian):** `#00ffc3`
-- **Dark Background:** `#0f0f10`
-- **Dark Card:** `#18181b`
-- **Text Primary:** `#ffffff`
-- **Text Secondary:** `#9ca3af`
-
----
-
 ## 🛠️ Tecnologías
 
 ### Backend
-- FastAPI 0.109.0
-- Pandas 2.1.4
-- Scikit-learn 1.4.0
-- XGBoost 2.0.3
-- OpenAI 1.10.0
-- Uvicorn 0.27.0
+- **FastAPI** - Framework web moderno
+- **Pandas** - Procesamiento de datos
+- **SQLite** - Base de datos de clientes
+- **Uvicorn** - Servidor ASGI
 
 ### Frontend
-- React 18.2
-- Vite 5.0
-- TailwindCSS 3.4
-- Framer Motion 10.18
-- Recharts 2.10
-- Lucide React 0.303
-- React Dropzone 14.2
-- React CountUp 6.5
+- **React 18** - Interfaz de usuario
+- **Vite** - Build tool
+- **TailwindCSS** - Estilos
+- **Framer Motion** - Animaciones
+- **Recharts** - Gráficos
+- **Lucide React** - Iconos
+- **Axios** - HTTP client
 
 ---
 
 ## 📝 API Endpoints
 
-### `POST /upload_excel`
-Sube y procesa archivo Excel.
+### Datos y Predicciones
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| POST | `/upload_excel` | Sube y procesa archivo Excel |
+| POST | `/train_model` | Entrena modelo de predicción |
+| GET | `/predict?days=7` | Obtiene predicciones |
+| GET | `/stats` | Estadísticas generales |
+| POST | `/reset` | Reinicia base de datos |
 
-**Response:**
-```json
-{
-  "success": true,
-  "stats": {
-    "total_dias": 365,
-    "ventas_totales": 150000.50,
-    "promedio_ventas_dia": 410.96
-  },
-  "recent_data": [...]
-}
-```
+### Clientes
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/clientes` | Lista de clientes |
+| GET | `/clientes/stats` | Estadísticas de clientes |
+| GET | `/clientes/{telefono}` | Detalle de cliente |
+| GET | `/clientes/buscar/{query}` | Buscar cliente |
 
-### `POST /train_model`
-Entrena modelos ML.
-
-### `GET /predict?days=7`
-Obtiene predicciones.
-
-### `POST /insight`
-Genera análisis GPT.
+### Reportes
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/reportes/resumen` | Reporte ejecutivo completo |
 
 ---
 
@@ -365,22 +356,6 @@ npm install
 
 ---
 
-## 🚀 Despliegue en Producción
-
-### Backend (Railway, Render, Heroku)
-```bash
-# Añadir Procfile
-web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
-
-### Frontend (Vercel, Netlify)
-```bash
-npm run build
-# Subir carpeta dist/
-```
-
----
-
 ## 📄 Licencia
 
 MIT License - Libre para uso personal y comercial.
@@ -393,21 +368,8 @@ Desarrollado con ❤️ para Pizzería MAX
 
 ---
 
-## 🙏 Agradecimientos
-
-- OpenAI por GPT-4
-- Comunidad de React y FastAPI
-- Tailwind Labs por TailwindCSS
-- Recharts por gráficos hermosos
-
----
-
 <div align="center">
 
-**¿Preguntas o sugerencias?**
-
-[Reportar Bug](https://github.com/tu-repo/issues) • [Solicitar Feature](https://github.com/tu-repo/issues)
-
-⭐ **Si te gusta este proyecto, dale una estrella!** ⭐
+**Pizzería MAX AI v2.0** - Sistema de Predicción Inteligente
 
 </div>
